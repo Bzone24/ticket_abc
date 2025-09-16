@@ -10,13 +10,13 @@
 
                 // Decide time format based on presence of seconds
                 $formatFromString = function ($s) {
-                    return (is_string($s) && substr_count($s, ':') >= 2) ? 'g:i:s A' : 'g:i A';
+                    return is_string($s) && substr_count($s, ':') >= 2 ? 'g:i:s A' : 'g:i A';
                 };
 
                 $addOneMinute = function ($t) use ($formatFromString) {
                     try {
                         $dt = \Illuminate\Support\Carbon::parse($t)->addMinute();
-                        $fmt = $formatFromString((string)$t);
+                        $fmt = $formatFromString((string) $t);
                         return $dt->format($fmt);
                     } catch (\Throwable $e) {
                         return $t;
@@ -36,16 +36,17 @@
                 $labels = !empty($selected_game_labels)
                     ? $selected_game_labels
                     : collect($games ?? [])
-                          ->whereIn('id', $selected_games ?? [])
-                          ->map(fn($g) => strtoupper($g->code ?? $g->short_code ?? $g->name ?? ''))
-                          ->values()
-                          ->all();
+                        ->whereIn('id', $selected_games ?? [])
+                        ->map(fn($g) => strtoupper($g->code ?? ($g->short_code ?? ($g->name ?? ''))))
+                        ->values()
+                        ->all();
             @endphp
 
             <h6 class="mb-0 w-100 text-center">
-                <strong>Game:</strong> {{ !empty($labels) ? implode(', ', $labels) : '—' }}
-                &nbsp; | &nbsp;
-                <strong>Draw:</strong> {{ !empty($times) ? implode(', ', $times) : '—' }}
+                @foreach ($this->selectedDraws as $key => $draw)
+                    <strong>Draw:</strong> {{ $draw->formatResultTime() }} ,
+                    <strong>Game:</strong>{{ $draw->draw->game->name }} |
+                @endforeach
             </h6>
         </div>
     </div>
@@ -78,9 +79,8 @@
                                 <td>{{ $option['qty'] }}</td>
                                 <td>{{ $option['total'] }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-danger"
-                                            wire:click="deleteOption({{ $index }})"
-                                            title="Delete">
+                                    <button class="btn btn-sm btn-danger" wire:click="deleteOption({{ $index }})"
+                                        title="Delete">
                                         🗑
                                     </button>
                                 </td>
@@ -131,7 +131,7 @@
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div> --}}
                                         @enderror
-                                    <span>
+                                        <span>
                                 </div>
                             </td>
                             <td colspan="2" class="text-end">
@@ -155,119 +155,122 @@
 
 {{-- Print + Shortcut Script --}}
 @script
+    <script>
+        window.COMBINED_PRINTER = true;
 
-<script>
-    window.COMBINED_PRINTER = true;
+        // helper: clone panel, strip interactive bits and remove last column (Action)
+        function cleanPanelHtml(elem, title) {
+            if (!elem) return '';
+            const table = elem.querySelector('table');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'panel-wrap';
 
-    // helper: clone panel, strip interactive bits and remove last column (Action)
-    function cleanPanelHtml(elem, title) {
-        if (!elem) return '';
-        const table = elem.querySelector('table');
-        const wrapper = document.createElement('div');
-        wrapper.className = 'panel-wrap';
-
-        if (title) {
-            const h = document.createElement('div');
-            h.textContent = title;
-            h.style.fontWeight = '700';
-            h.style.marginBottom = '6px';
-            wrapper.appendChild(h);
-        }
-
-        if (table) {
-            const t = table.cloneNode(true);
-
-            // Remove interactive elements and attributes in one pass
-            t.querySelectorAll('button, input, textarea, select, .no-print, .btn').forEach(n => n.remove());
-            t.querySelectorAll('[wire\\:click]').forEach(n => n.removeAttribute('wire:click'));
-            t.querySelectorAll('[wire\\:key]').forEach(n => n.removeAttribute('wire:key'));
-
-            // Remove Action column from header and body only
-            t.querySelectorAll('thead tr').forEach(r => {
-                const lastTh = r.querySelector('th:last-child');
-                if (lastTh) lastTh.remove();
-            });
-            t.querySelectorAll('tbody tr').forEach(r => {
-                const lastTd = r.querySelector('td:last-child');
-                if (lastTd) lastTd.remove();
-            });
-
-            // Remove buttons inside tfoot but keep footer totals structure
-            t.querySelectorAll('tfoot button, tfoot .btn, tfoot input, tfoot select, tfoot textarea').forEach(n => n.remove());
-
-            wrapper.appendChild(t);
-        } else {
-            const clone = elem.cloneNode(true);
-            clone.querySelectorAll('button, input, textarea, select, .no-print, .btn').forEach(n => n.remove());
-            clone.querySelectorAll('[wire\\:click]').forEach(n => n.removeAttribute('wire:click'));
-            wrapper.appendChild(clone);
-        }
-
-        return wrapper.outerHTML;
-    }
-
-    function extractVisibleTicketAndDraw() {
-        const text = (document.body && document.body.innerText) ? document.body.innerText : '';
-        let ticketNo = '';
-        let drawText = '';
-
-        const tn = text.match(/Ticket\s*No[:\s]*([A-Za-z0-9\-\_]+)/i);
-        if (tn) ticketNo = tn[1].trim();
-
-        const d = text.match(/Draw[:\s]*([^\n\r]+)/i);
-        if (d) {
-            drawText = d[1].trim().replace(/\s{2,}/g, ' ');
-            drawText = drawText.split(/\r?\n/)[0].trim();
-        }
-
-        return { ticketNo, drawText };
-    }
-
-    /**
-     * printStackedTicket
-     * - Builds the same HTML payload as before
-     * - Creates a hidden iframe, writes the HTML into it and calls print()
-     * - Removes the iframe after printing
-     */
-    function printStackedTicket() {
-        setTimeout(() => {
-            const simpleElem = document.getElementById('printSimpleArea');
-            const crossElem  = document.getElementById('printCrossArea');
-
-            const classAreas = Array.from(document.querySelectorAll('.print-area'));
-            const simple = simpleElem || classAreas[0] || null;
-            const cross  = crossElem  || classAreas[1] || classAreas[0] || null;
-
-            if (!simple && !cross) {
-                alert('No ticket content found to print (Simple / Cross panels missing).');
-                return;
+            if (title) {
+                const h = document.createElement('div');
+                h.textContent = title;
+                h.style.fontWeight = '700';
+                h.style.marginBottom = '6px';
+                wrapper.appendChild(h);
             }
 
-            const simpleHtml = simple ? cleanPanelHtml(simple, 'Simple ABC') : '';
-            const crossHtml  = cross  ? cleanPanelHtml(cross, 'Cross ABC')  : '';
+            if (table) {
+                const t = table.cloneNode(true);
 
-            // prefer server-provided values if present, otherwise read from page
-            let ticketNo = {!! json_encode($selected_ticket->ticket_number ?? null) !!} || '';
-            let drawTimeRaw = {!! json_encode($times ?? null) !!} || null;
+                // Remove interactive elements and attributes in one pass
+                t.querySelectorAll('button, input, textarea, select, .no-print, .btn').forEach(n => n.remove());
+                t.querySelectorAll('[wire\\:click]').forEach(n => n.removeAttribute('wire:click'));
+                t.querySelectorAll('[wire\\:key]').forEach(n => n.removeAttribute('wire:key'));
 
-            let drawTime = '';
-            if (Array.isArray(drawTimeRaw)) {
-                drawTime = drawTimeRaw.join(', ');
-            } else if (typeof drawTimeRaw === 'string' && drawTimeRaw.length) {
-                drawTime = drawTimeRaw;
+                // Remove Action column from header and body only
+                t.querySelectorAll('thead tr').forEach(r => {
+                    const lastTh = r.querySelector('th:last-child');
+                    if (lastTh) lastTh.remove();
+                });
+                t.querySelectorAll('tbody tr').forEach(r => {
+                    const lastTd = r.querySelector('td:last-child');
+                    if (lastTd) lastTd.remove();
+                });
+
+                // Remove buttons inside tfoot but keep footer totals structure
+                t.querySelectorAll('tfoot button, tfoot .btn, tfoot input, tfoot select, tfoot textarea').forEach(n => n
+                    .remove());
+
+                wrapper.appendChild(t);
+            } else {
+                const clone = elem.cloneNode(true);
+                clone.querySelectorAll('button, input, textarea, select, .no-print, .btn').forEach(n => n.remove());
+                clone.querySelectorAll('[wire\\:click]').forEach(n => n.removeAttribute('wire:click'));
+                wrapper.appendChild(clone);
             }
 
-            // fallback to visible page if either missing
-            if (!ticketNo || !drawTime) {
-                const visible = extractVisibleTicketAndDraw();
-                if (!ticketNo && visible.ticketNo) ticketNo = visible.ticketNo;
-                if (!drawTime && visible.drawText) drawTime = visible.drawText;
+            return wrapper.outerHTML;
+        }
+
+        function extractVisibleTicketAndDraw() {
+            const text = (document.body && document.body.innerText) ? document.body.innerText : '';
+            let ticketNo = '';
+            let drawText = '';
+
+            const tn = text.match(/Ticket\s*No[:\s]*([A-Za-z0-9\-\_]+)/i);
+            if (tn) ticketNo = tn[1].trim();
+
+            const d = text.match(/Draw[:\s]*([^\n\r]+)/i);
+            if (d) {
+                drawText = d[1].trim().replace(/\s{2,}/g, ' ');
+                drawText = drawText.split(/\r?\n/)[0].trim();
             }
 
-            ticketNo = ticketNo || '';
-            drawTime = drawTime || '';
+            return {
+                ticketNo,
+                drawText
+            };
+        }
 
-            const styles = `
+        /**
+         * printStackedTicket
+         * - Builds the same HTML payload as before
+         * - Creates a hidden iframe, writes the HTML into it and calls print()
+         * - Removes the iframe after printing
+         */
+        function printStackedTicket() {
+            setTimeout(() => {
+                const simpleElem = document.getElementById('printSimpleArea');
+                const crossElem = document.getElementById('printCrossArea');
+
+                const classAreas = Array.from(document.querySelectorAll('.print-area'));
+                const simple = simpleElem || classAreas[0] || null;
+                const cross = crossElem || classAreas[1] || classAreas[0] || null;
+
+                if (!simple && !cross) {
+                    alert('No ticket content found to print (Simple / Cross panels missing).');
+                    return;
+                }
+
+                const simpleHtml = simple ? cleanPanelHtml(simple, 'Simple ABC') : '';
+                const crossHtml = cross ? cleanPanelHtml(cross, 'Cross ABC') : '';
+
+                // prefer server-provided values if present, otherwise read from page
+                let ticketNo = {!! json_encode($selected_ticket->ticket_number ?? null) !!} || '';
+                let drawTimeRaw = {!! json_encode($times ?? null) !!} || null;
+
+                let drawTime = '';
+                if (Array.isArray(drawTimeRaw)) {
+                    drawTime = drawTimeRaw.join(', ');
+                } else if (typeof drawTimeRaw === 'string' && drawTimeRaw.length) {
+                    drawTime = drawTimeRaw;
+                }
+
+                // fallback to visible page if either missing
+                if (!ticketNo || !drawTime) {
+                    const visible = extractVisibleTicketAndDraw();
+                    if (!ticketNo && visible.ticketNo) ticketNo = visible.ticketNo;
+                    if (!drawTime && visible.drawText) drawTime = visible.drawText;
+                }
+
+                ticketNo = ticketNo || '';
+                drawTime = drawTime || '';
+
+                const styles = `
                 <style>
                   body { font-family: monospace; font-size: 12px; margin: 0; padding: 4px; color:#000; }
                   table { width: 100%; border-collapse: collapse; }
@@ -279,7 +282,7 @@
                 </style>
             `;
 
-            const html = `
+                const html = `
                 <html>
                   <head><title>Print Ticket</title>${styles}</head>
                   <body>
@@ -291,101 +294,98 @@
                 </html>
             `;
 
-            // Create a hidden iframe and write the HTML into it
-            const iframe = document.createElement('iframe');
-            iframe.style.position = 'fixed';
-            iframe.style.right = '0';
-            iframe.style.bottom = '0';
-            iframe.style.width = '0';
-            iframe.style.height = '0';
-            iframe.style.border = '0';
-            iframe.style.overflow = 'hidden';
-            iframe.setAttribute('aria-hidden', 'true');
+                // Create a hidden iframe and write the HTML into it
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'fixed';
+                iframe.style.right = '0';
+                iframe.style.bottom = '0';
+                iframe.style.width = '0';
+                iframe.style.height = '0';
+                iframe.style.border = '0';
+                iframe.style.overflow = 'hidden';
+                iframe.setAttribute('aria-hidden', 'true');
 
-            // Append first so srcdoc / onload fire reliably in browsers
-            document.body.appendChild(iframe);
+                // Append first so srcdoc / onload fire reliably in browsers
+                document.body.appendChild(iframe);
 
-            // Use srcdoc if supported, otherwise write into iframe document
-            try {
-                if ('srcdoc' in iframe) {
-                    iframe.srcdoc = html;
-                    iframe.onload = function () {
-                        try {
-                            iframe.contentWindow.focus();
-                            iframe.contentWindow.print();
-                        } catch (err) {
-                            // fallback to writing and printing
+                // Use srcdoc if supported, otherwise write into iframe document
+                try {
+                    if ('srcdoc' in iframe) {
+                        iframe.srcdoc = html;
+                        iframe.onload = function() {
                             try {
-                                iframe.contentDocument.open();
-                                iframe.contentDocument.write(html);
-                                iframe.contentDocument.close();
                                 iframe.contentWindow.focus();
                                 iframe.contentWindow.print();
-                            } catch (e) {
-                                // last resort: alert user
+                            } catch (err) {
+                                // fallback to writing and printing
+                                try {
+                                    iframe.contentDocument.open();
+                                    iframe.contentDocument.write(html);
+                                    iframe.contentDocument.close();
+                                    iframe.contentWindow.focus();
+                                    iframe.contentWindow.print();
+                                } catch (e) {
+                                    // last resort: alert user
+                                    alert('Printing failed in this browser.');
+                                }
+                            }
+                            // remove iframe after small delay to allow print dialog to initialize
+                            setTimeout(() => iframe.remove(), 1000);
+                        };
+                    } else {
+                        // Older browsers: write directly
+                        const idoc = iframe.contentWindow.document;
+                        idoc.open();
+                        idoc.write(html);
+                        idoc.close();
+                        iframe.onload = function() {
+                            try {
+                                iframe.contentWindow.focus();
+                                iframe.contentWindow.print();
+                            } catch (err) {
                                 alert('Printing failed in this browser.');
                             }
-                        }
-                        // remove iframe after small delay to allow print dialog to initialize
-                        setTimeout(() => iframe.remove(), 1000);
-                    };
-                } else {
-                    // Older browsers: write directly
-                    const idoc = iframe.contentWindow.document;
-                    idoc.open();
-                    idoc.write(html);
-                    idoc.close();
-                    iframe.onload = function () {
-                        try {
-                            iframe.contentWindow.focus();
-                            iframe.contentWindow.print();
-                        } catch (err) {
-                            alert('Printing failed in this browser.');
-                        }
-                        setTimeout(() => iframe.remove(), 1000);
-                    };
+                            setTimeout(() => iframe.remove(), 1000);
+                        };
+                    }
+                } catch (e) {
+                    // If iframe approach fails, fallback to original inline print (may open new tab)
+                    const w = window.open('', '', 'width=380,height=800');
+                    if (!w) {
+                        alert('Popup blocked — allow popups to print.');
+                        return;
+                    }
+                    w.document.open();
+                    w.document.write(html);
+                    w.document.close();
+                    w.focus();
+                    setTimeout(() => {
+                        w.print();
+                        w.close();
+                    }, 200);
                 }
-            } catch (e) {
-                // If iframe approach fails, fallback to original inline print (may open new tab)
-                const w = window.open('', '', 'width=380,height=800');
-                if (!w) {
-                    alert('Popup blocked — allow popups to print.');
-                    return;
-                }
-                w.document.open();
-                w.document.write(html);
-                w.document.close();
-                w.focus();
-                setTimeout(() => {
-                    w.print();
-                    w.close();
-                }, 200);
-            }
-        }, 150);
-    }
-
-    // Trigger print after server-side emit (keeps original behavior)
-    Livewire.on('ticketSubmitted', () => {
-        printStackedTicket();
-    });
-
-    // Also call print on Submit button click immediately (non-blocking)
-    document.addEventListener('click', function (e) {
-        const el = e.target.closest && e.target.closest('.btn[wire\\:click="submitTicket"]');
-        if (el) {
-            // small delay so Livewire can start processing if needed
-            setTimeout(printStackedTicket, 80);
+            }, 150);
         }
-    }, true);
 
-    // Keyboard shortcut: F12 triggers printStackedTicket (does not block default F12)
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'F12') {
+        // Trigger print after server-side emit (keeps original behavior)
+        Livewire.on('ticketSubmitted', () => {
             printStackedTicket();
-        }
-    });
-</script>
+        });
 
+        // Also call print on Submit button click immediately (non-blocking)
+        document.addEventListener('click', function(e) {
+            const el = e.target.closest && e.target.closest('.btn[wire\\:click="submitTicket"]');
+            if (el) {
+                // small delay so Livewire can start processing if needed
+                setTimeout(printStackedTicket, 80);
+            }
+        }, true);
+
+        // Keyboard shortcut: F12 triggers printStackedTicket (does not block default F12)
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F12') {
+                printStackedTicket();
+            }
+        });
+    </script>
 @endscript
-
-

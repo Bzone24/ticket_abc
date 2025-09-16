@@ -10,7 +10,7 @@
  @stack('custom-css')
  @livewireStyles
  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
- <style>
+ {{-- <style> --}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -105,6 +105,7 @@
     }
   });
    </script>
+
 </body>
 
 </html>

@@ -30,7 +30,7 @@
     </div>
     @push('custom-js')
         <script>
-            document.addEventListener('livewire:init', () => {})
+           
 
             $(document).ready(function() {
                  // A/B/C inputs (digits 0–9, no duplicates, max 10 unique digits)
@@ -80,10 +80,7 @@
                     });
                 }
             });
-            //   $wire.on('checked-draws', (event) => {
-
-
-            // });
+               
         </script>
     @endpush
 @endsection

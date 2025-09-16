@@ -3,10 +3,10 @@
     <!-- Timer Header -->
     @include('livewire.ticket-data-form')
 
-<div class="card-header text-black">
-  <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom w-100">
+    <div class="card-header text-black">
+        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom w-100">
 
-    {{-- @php
+            {{-- @php
       // TIMES: prefer $selected_times; fallback to active_draw->formatEndTime()
       $times = !empty($selected_times)
           ? $selected_times
@@ -23,53 +23,54 @@
                 ->all();
     @endphp --}}
 
-     @php
-    use Illuminate\Support\Str;
+            @php
+                use Illuminate\Support\Str;
 
-    // Decide format: if original has seconds -> show seconds, else no seconds.
-    $formatFromString = function ($s) {
-        return (is_string($s) && substr_count($s, ':') >= 2) ? 'g:i:s A' : 'g:i A';
-    };
+                // Decide format: if original has seconds -> show seconds, else no seconds.
+                $formatFromString = function ($s) {
+                    return is_string($s) && substr_count($s, ':') >= 2 ? 'g:i:s A' : 'g:i A';
+                };
 
-    $addOneMinute = function ($t) use ($formatFromString) {
-        try {
-            $dt = \Illuminate\Support\Carbon::parse($t)->addMinute();
-            $fmt = $formatFromString((string)$t);
-            return $dt->format($fmt); // 12-hour with AM/PM, e.g. 3:00 PM
-        } catch (\Throwable $e) {
-            // parsing failed — return original value as safe fallback
-            return $t;
-        }
-    };
+                $addOneMinute = function ($t) use ($formatFromString) {
+                    try {
+                        $dt = \Illuminate\Support\Carbon::parse($t)->addMinute();
+                        $fmt = $formatFromString((string) $t);
+                        return $dt->format($fmt); // 12-hour with AM/PM, e.g. 3:00 PM
+                    } catch (\Throwable $e) {
+                        // parsing failed — return original value as safe fallback
+                        return $t;
+                    }
+                };
 
-    if (!empty($selected_times)) {
-        $selected_times_arr = is_array($selected_times) ? $selected_times : [$selected_times];
-        $times = array_map($addOneMinute, $selected_times_arr);
-    } elseif (isset($active_draw)) {
-        $raw = $active_draw->formatEndTime();
-        $times = [ $addOneMinute($raw) ];
-    } else {
-        $times = [];
-    }
+                if (!empty($selected_times)) {
+                    $selected_times_arr = is_array($selected_times) ? $selected_times : [$selected_times];
+                    $times = array_map($addOneMinute, $selected_times_arr);
+                } elseif (isset($active_draw)) {
+                    $raw = $active_draw->formatEndTime();
+                    $times = [$addOneMinute($raw)];
+                } else {
+                    $times = [];
+                }
 
-    // GAMES: prefer $selected_game_labels; fallback from games list
-    $labels = !empty($selected_game_labels)
-        ? $selected_game_labels
-        : collect($games ?? [])
-              ->whereIn('id', $selected_games ?? [])
-              ->map(fn($g) => strtoupper($g->code ?? $g->short_code ?? $g->name ?? ''))
-              ->values()
-              ->all();
-@endphp
+                // GAMES: prefer $selected_game_labels; fallback from games list
+                $labels = !empty($selected_game_labels)
+                    ? $selected_game_labels
+                    : collect($games ?? [])
+                        ->whereIn('id', $selected_games ?? [])
+                        ->map(fn($g) => strtoupper($g->code ?? ($g->short_code ?? ($g->name ?? ''))))
+                        ->values()
+                        ->all();
+            @endphp
 
-    <h6 class="mb-0 w-100 text-center">
-      <strong>Game:</strong> {{ !empty($labels) ? implode(', ', $labels) : '—' }}
-      &nbsp; | &nbsp;
-      <strong>Draw:</strong> {{ !empty($times) ? implode(', ', $times) : '—' }}
-    </h6>
+            <h6 class="mb-0 w-100 text-center">
+                @foreach ($this->selectedDraws as $key => $draw)
+                    <strong>Draw:</strong> {{ $draw->formatResultTime() }} ,
+                    <strong>Game:</strong>{{ $draw->draw->game->name }} |
+                @endforeach
+            </h6>
 
-  </div>
-</div>
+        </div>
+    </div>
 
 
 
@@ -105,8 +106,7 @@
                                 <td>{{ $d['combination'] * $d['amt'] }}</td>
                                 <td>
                                     <button class="btn btn-sm btn-danger"
-                                            wire:click="deleteCrossAbc({{ $index }})"
-                                            title="Delete">
+                                        wire:click="deleteCrossAbc({{ $index }})" title="Delete">
                                         🗑
                                     </button>
                                 </td>
@@ -159,7 +159,7 @@
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div> --}}
                                         @enderror
-                                    <span>
+                                        <span>
                                 </div>
                             </td>
                             <td colspan="2" class="text-end">
@@ -179,36 +179,36 @@
             </div>
         </div>
     </div>
-     
+
 </div>
 
 
 {{-- Print & Shortcut Script --}}
 @script
-<script>
-    document.addEventListener('keydown', function (e) {
-        // Detect Ctrl + F12
-        if (e.ctrlKey && e.key === "F12") {
-            e.preventDefault();
-            @this.call('submitTicket');
-        }
-    });
+    <script>
+        document.addEventListener('keydown', function(e) {
+            // Detect Ctrl + F12
+            if (e.ctrlKey && e.key === "F12") {
+                e.preventDefault();
+                @this.call('submitTicket');
+            }
+        });
 
-    // After save -> print cross ticket
- Livewire.on('ticketSubmitted', () => {
-    // skip partial printing if combined printer exists
-    if (window.COMBINED_PRINTER) return;
+        // After save -> print cross ticket
+        Livewire.on('ticketSubmitted', () => {
+            // skip partial printing if combined printer exists
+            if (window.COMBINED_PRINTER) return;
 
-    // keep old fallback for debugging / dev if no combined printer present:
-    printSimpleTicket?.();
-    printCrossTicket?.();
-});
+            // keep old fallback for debugging / dev if no combined printer present:
+            printSimpleTicket?.();
+            printCrossTicket?.();
+        });
 
 
-    function printCrossTicket() {
-    let content = document.getElementById("printCrossArea")?.innerHTML ?? '';
-    let printWindow = window.open("", "", "width=300,height=600");
-    printWindow.document.write(`
+        function printCrossTicket() {
+            let content = document.getElementById("printCrossArea")?.innerHTML ?? '';
+            let printWindow = window.open("", "", "width=300,height=600");
+            printWindow.document.write(`
         <html>
             <head>
                 <title>Print Cross Ticket</title>
@@ -230,12 +230,10 @@
             </body>
         </html>
     `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
-}
-
-</script>
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+        }
+    </script>
 @endscript
-

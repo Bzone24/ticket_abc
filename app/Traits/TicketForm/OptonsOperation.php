@@ -497,18 +497,24 @@ trait OptonsOperation
                 $total_qty = $total_a_qty + $total_b_qty + $total_c_qty;
                 $total_cross_amt = $detail->crossAbcDetail->sum('amount') ?? 0;
                 
-                $errors = [];
                 if ($total_qty > $maximum_tq) {
-                    $errors['draw_detail_simple'] = "Draw exceeds allowed limit. (Qty: $total_qty)";
+                    $this->dispatch('swal', [
+                        'icon'  => 'error',
+                        'title' => 'Oops!',
+                        'text'  => "Draw exceeds allowed limit. (TQ qty: $total_qty)",
+                    ]);
+                    return;
                 }
 
                 if ($total_cross_amt > $maximum_cross_amt) {
-                    $errors['draw_detail_cross'] = "Draw exceeds allowed limit. (Cross Amt: $total_cross_amt)";
+                    $this->dispatch('swal', [
+                        'icon'  => 'error',
+                        'title' => 'Oops!',
+                        'text'  => "Draw exceeds allowed limit. (Cross Amt: $total_cross_amt)",
+                    ]);
+                    return;
                 }
 
-                if (!empty($errors)) {
-                    throw \Illuminate\Validation\ValidationException::withMessages($errors);
-                }
 
                 $detail->update([
                     'total_qty'       => $total_qty,

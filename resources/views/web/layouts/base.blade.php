@@ -8,6 +8,8 @@
     @include('web.includes.css-plugins')
     @stack('custom-css')
     @livewireStyles
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
 </head>
@@ -23,6 +25,21 @@
     @stack('custom-js')
     @stack('scripts')
     @livewireScripts
+    <script>
+         document.addEventListener('livewire:init', () => {
+
+                Livewire.on('swal', event => {
+                    // console.log(event);
+                    const message = event[0]
+                    Swal.fire({
+                        icon: message.icon,
+                        title: message.title,
+                        text: message.text,
+                        confirmButtonColor: '#3085d6',
+                    });
+                });
+            })
+    </script>
 
 </body>
 
