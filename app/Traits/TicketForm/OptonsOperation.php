@@ -75,10 +75,10 @@ trait OptonsOperation
     {
         $hasError = false;
 
-        if (empty($this->abc)) {
-            $this->addError('abc', 'Please Enter The Value');
-            $hasError = true;
-        }
+        if ($this->abc === null || trim((string) $this->abc) === '') {
+    $this->addError('abc', 'Please Enter The Value');
+    $hasError = true;
+}
 
         if (empty($this->abc_qty)) {
             $this->addError('abc_qty', 'Please Enter Qty');
