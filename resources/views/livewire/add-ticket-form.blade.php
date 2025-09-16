@@ -1,4 +1,4 @@
-<div class="row g-3 mb-3">
+<div class="row g-1 mb-2 h-50">
     <!-- Simple ABC Display -->
     <div class="col-lg-4 col-md-6">
         @include('livewire.number-display-list', ['type' => 'simple'])
@@ -9,15 +9,6 @@
         @include('livewire.number-display-list-cross', ['type' => 'cross'])
     </div>
 
-    <!-- Ticket List (reduce width) -->
-    {{-- <div class="col-lg-1 col-md-6">
-        @include('livewire.ticket-list')
-    </div> --}}
-
-    <!-- Latest Draw Details List (new section) -->
-    {{-- <div class="col-lg-3 col-md-6">
-        @include('livewire.latest-draw-details-list')
-    </div> --}}
 
     <div class="col-lg-4 col-md-3 d-flex flex-column gap-2">
         @include('livewire.ticket-list')
@@ -25,18 +16,18 @@
     </div>
 
     <!-- ===== Lower Section: 3 cards side by side ===== -->
-    <div class="row g-3">
+    <div class="row g-1">
          <!-- 🔹 Game Selection Dropdown -->
  
         <!-- Simple ABC Entry -->
             <!-- Simple ABC Entry + Shortcuts -->
         <div class="col-lg-4 col-md-6">
-            <div class="d-flex flex-column gap-3">
+            <div class="d-flex flex-column gap-2">
                 <!-- Simple ABC -->
                 @include('livewire.simple-abc')
 
                 <!-- Shortcuts -->
-                <div class="card shadow-sm border-0 rounded-3 bg-dark text-light">
+                {{-- <div class="card shadow-sm border-0 rounded-3 bg-dark text-light">
                     <div class="card-header bg-danger bg-gradient text-white py-2">
                         <h6 class="mb-0">
                             <i class="bi bi-keyboard me-2"></i> Shortcuts
@@ -52,23 +43,24 @@
                             <li><strong>Ctrl + 1   → Focus A --- Ctrl + 2   → Focus B  ---- Ctrl + 3   → Focus C </strong></li>
                             <li><strong> Ctrl+ Shift + C    → Focus ABC </strong></li>
 
-                            {{-- <li><kbd><strong>Ctrl + 1 </strong> </kbd> → Focus <strong>A</strong> <kbd>Ctrl</kbd> + <kbd>B</kbd> → Focus <strong>B</strong> <kbd>Ctrl</kbd> + <kbd>C</kbd> → Focus <strong>C</strong> </li> --}}
+                           
 
                         </ul>
                     </div>
-                </div>
+                </div> --}}
             </div>
         </div>
 
         <!-- Cross ABC Entry -->
         <div class="col-lg-4 col-md-6">
             @include('livewire.cross-abc')
-        </div>
+       
 
         <!-- Draw List -->
-        <div class="col-lg-4 col-md-12">
+        <div class="col-lg-4 col-md-6">
             @include('livewire.draw-list')
         </div>
+         </div>
     </div>
 </div>
 

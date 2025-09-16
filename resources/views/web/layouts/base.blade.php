@@ -21,6 +21,7 @@
 
     @include('web.includes.js-plugins')
     @stack('custom-js')
+    @stack('scripts')
     @livewireScripts
 
 </body>

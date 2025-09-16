@@ -37,4 +37,8 @@ Thumbs.db
 # IDE
 /.phpstorm.meta.php
 /.phpunit.cache
+<<<<<<< HEAD
 /.phpunit.result.cache
+=======
+/.phpunit.result.cache
+>>>>>>> 5885ddf988150cf26b28fe69b472961307ee2d50

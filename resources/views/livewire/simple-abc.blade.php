@@ -8,7 +8,6 @@
 
     <!-- Body -->
     <div class="card-body" style="background:#212120;">
-        
         {{-- ✅ Ticket Info --}}
         @if ($selected_ticket)
             <div class="text-center mb-3 p-2 rounded" style="background:#333; color:#fff;">
@@ -17,42 +16,59 @@
             </div>
         @endif
 
-        {{-- 🔍 Debug --}}
-        {{-- <div style="color:yellow;">
-            DEBUG: Ticket = {{ $selected_ticket ? $selected_ticket->ticket_number : 'none' }} <br>
-            Times = {{ is_array($selected_times) ? implode(', ', $selected_times) : $selected_times }}
-        </div> --}}
+        <div class="row mb-3 p-2 rounded" style="background:#2c9162;"
+             x-data
+             @focus-qty.window="document.getElementById('qty')?.focus()"
+             @focus-abc.window="document.getElementById('abc')?.focus()">
 
-        <div class="row mb-3 p-2 rounded" style="background:#2c9162;"  {{-- Purple background for ABC --}}
-             x-data 
-             @focus-qty.window="document.getElementById('qty').focus()"
-             @focus-abc.window="document.getElementById('abc').focus()">
-             
-            <!-- ABC Input -->
-            <div class="col-6">
-                <label class="form-label text-white fw-bold" for="abc">ABC</label>
-                <input type="text" 
-                       class="form-control bg-light text-dark border-dark" 
-                       wire:model="abc" id="abc"
-                       wire:keydown.enter="enterKeyPressOnAbc" 
-                       placeholder="Enter ABC">
-                @error('abc')
-                    <span class="text-danger small">{{ $message }}</span>
-                @enderror
-            </div>
+           <!-- ABC Input -->
+<div class="col-6">
+    <label class="form-label text-white fw-bold" for="abc">ABC</label>
+    <input
+        type="text"
+        class="form-control bg-light text-dark border-dark cross-input"
+        wire:model.defer="abc"
+        id="abc"
+        placeholder="Enter ABC"
 
-            <!-- Qty Input -->
-            <div class="col-6">
-                <label class="form-label text-white fw-bold" for="qty">Qty</label>
-                <input type="text" 
-                       class="form-control bg-light text-dark border-dark" 
-                       wire:model="abc_qty" id="qty"
-                       wire:keydown.enter="enterKeyPressOnQty" 
-                       placeholder="Enter Qty">
-                @error('abc_qty')
-                    <span class="text-danger small">{{ $message }}</span>
-                @enderror
-            </div>
+        {{-- <!-- keep Enter behaviour (client-side move to qty) --> --}}
+        x-on:keydown.enter.prevent="$dispatch('focus-qty')"
+
+        {{-- <!-- arrow navigation --> --}}
+        x-on:keydown.right.prevent="$dispatch('focus-qty')"
+        x-on:keydown.down.prevent="$dispatch('focus-a')"
+        x-on:keydown.left.prevent="$dispatch('focus-abc')"  
+        x-on:keydown.up.prevent="$dispatch('focus-abc')"
+    >
+    @error('abc')
+        <span class="text-danger small">{{ $message }}</span>
+    @enderror
+</div>
+
+<!-- Qty Input -->
+<div class="col-6">
+    <label class="form-label text-white fw-bold" for="qty">Qty</label>
+    <input
+        type="text"
+        class="form-control bg-light text-dark border-dark cross-input"
+        wire:model.defer="abc_qty"
+        id="qty"
+        placeholder="Enter Qty"
+
+        {{-- <!-- existing Enter still calls server --> --}}
+        wire:keydown.enter.prevent="enterKeyPressOnQty"
+
+        {{-- <!-- arrow navigation --> --}}
+        x-on:keydown.left.prevent="$dispatch('focus-abc')"
+        x-on:keydown.right.prevent="$dispatch('focus-cross-abc')"  
+        x-on:keydown.down.prevent="$dispatch('focus-a_qty')"
+        x-on:keydown.up.prevent="$dispatch('focus-qty')"
+    >
+    @error('abc_qty')
+        <span class="text-danger small">{{ $message }}</span>
+    @enderror
+</div>
+
         </div>
 
         <!-- Table -->
@@ -65,80 +81,89 @@
                         <th>Qty</th>
                     </tr>
                 </thead>
-                <tbody 
-                    x-data 
-                    @focus-b.window="document.getElementById('input_b').focus()"
-                    @focus-a.window="document.getElementById('input_a').focus()"
-                    @focus-c.window="document.getElementById('input_c').focus()"
-                    @focus-a_qty.window="document.getElementById('input_a_qty').focus()"
-                    @focus-b_qty.window="document.getElementById('input_b_qty').focus()"
-                    @focus-c_qty.window="document.getElementById('input_c_qty').focus()">
-                    
-                    <!-- A Row -->
-                    <tr>
-                        <td class="bg-success text-white text-center" ><b>A</b></td>
-                        <td>
-                            <input type="text" id="input_a" 
-                                   wire:model.debounce.250ms='a'
-                                   wire:keydown.down="move('focus-b','a')" 
-                                   wire:keydown.right="move('focus-a_qty','a')" 
-                                   wire:keydown.tab="keyTab('a')" 
-                                   class="form-control bg-light text-dark border-warning text-center zeroToNineNumber">
-                        </td>
-                        <td>
-                            <input type="text" class="form-control form-control bg-light text-dark border-warning text-center number_qty" 
-                                   id="input_a_qty" wire:model="a_qty"
-                                   wire:keydown.left="move('focus-a','a')" 
-                                   wire:keydown.down="move('focus-b_qty','a')" 
-                                   wire:keydown.tab="keyTab('a')"
-                                   wire:keydown.enter="keyEnter('a','focus-a')">
-                        </td>
-                    </tr>
+                <tbody
+    x-data
+    @focus-b.window="document.getElementById('input_b')?.focus()"
+    @focus-a.window="document.getElementById('input_a')?.focus()"
+    @focus-c.window="document.getElementById('input_c')?.focus()"
+    @focus-a_qty.window="document.getElementById('input_a_qty')?.focus()"
+    @focus-b_qty.window="document.getElementById('input_b_qty')?.focus()"
+    @focus-c_qty.window="document.getElementById('input_c_qty')?.focus()">
 
-                    <!-- B Row -->
-                    <tr>
-                        <td class="bg-warning text-dark text-center"><b>B</b></td>
-                        <td>
-                            <input type="text" id="input_b"
-                                   wire:model.debounce.250ms='b'
-                                   wire:keydown.up="move('focus-a','b')" 
-                                   wire:keydown.down="move('focus-c','b')"
-                                   wire:keydown.right="move('focus-b_qty','b')" 
-                                   wire:keydown.tab="keyTab('b')" 
-                                   class="form-control bg-light text-dark border-warning text-center zeroToNineNumber">
-                        </td>
-                        <td>
-                            <input type="text" class="form-control bg-light text-dark border-warning text-center number_qty"
-                                   id="input_b_qty" wire:model="b_qty"
-                                   wire:keydown.left="move('focus-b','b')" 
-                                   wire:keydown.down="move('focus-c_qty','b')"
-                                   wire:keydown.tab="keyTab('b')" 
-                                   wire:keydown.up="move('focus-a_qty','b')" 
-                                   wire:keydown.enter="keyEnter('b','focus-b')">
-                        </td>
-                    </tr>
+    <!-- A Row -->
+    <tr>
+        <td class="bg-success text-white text-center"><b>A</b></td>
+        <td>
+            <input type="text" id="input_a"
+                   wire:model.debounce.250ms="a"
+                   class="form-control bg-light text-dark border-warning text-center zeroToNineNumber"
+                   x-on:keydown.enter.prevent="$dispatch('focus-a_qty')"                     
+                   x-on:keydown.down.prevent="$dispatch('focus-b'); if (window.$wire) $wire.call('calculateTotal','a')"
+                   x-on:keydown.right.prevent="$dispatch('focus-a_qty'); if (window.$wire) $wire.call('calculateTotal','a')"
+                   x-on:keydown.tab.prevent="if (window.$wire) $wire.call('keyTab','a')"
+                   x-on:keydown.up.prevent="$dispatch('focus-abc')" >
+        </td>
+        <td>
+            <input type="text" class="form-control bg-light text-dark border-warning text-center number_qty"
+                   id="input_a_qty" wire:model.defer="a_qty"
+                   x-on:keydown.left.prevent="$dispatch('focus-a'); if (window.$wire) $wire.call('calculateTotal','a')"
+                   x-on:keydown.down.prevent="$dispatch('focus-b_qty'); if (window.$wire) $wire.call('calculateTotal','a')"
+                   x-on:keydown.tab.prevent="if (window.$wire) $wire.call('keyTab','a')"
+                   wire:keydown.enter.prevent="keyEnter('a','focus-a')"
+                   x-on:keydown.up.prevent="$dispatch('focus-abc')"
+                   x-on:keydown.right.prevent="$dispatch('focus-cross-a')">  <!-- existing save -> cache -->
+        </td>
+    </tr>
 
-                    <!-- C Row -->
-                    <tr>
-                        <td class="bg-info text-white text-center"><b>C</b></td>
-                        <td>
-                            <input type="text" id="input_c"
-                                   wire:model.debounce.250ms='c'
-                                   wire:keydown.up="move('focus-b','c')" 
-                                   wire:keydown.right="move('focus-c_qty','c')"
-                                   wire:keydown.tab="keyTab('c')" 
-                                   class="form-control bg-light text-dark border-warning text-center zeroToNineNumber">
-                        </td>
-                        <td>
-                            <input type="text" class="form-control bg-light text-dark border-warning text-center number_qty"
-                                   id="input_c_qty" wire:model="c_qty"
-                                   wire:keydown.left="move('focus-c','c')" 
-                                   wire:keydown.up="move('focus-b_qty','c')"
-                                   wire:keydown.tab="keyTab('c')" 
-                                   wire:keydown.enter="keyEnter('c','focus-c')">
-                        </td>
-                    </tr>
-                </tbody>
+    <!-- B Row -->
+    <tr>
+        <td class="bg-warning text-dark text-center"><b>B</b></td>
+        <td>
+            <input type="text" id="input_b"
+                   wire:model.debounce.250ms="b"
+                   class="form-control bg-light text-dark border-warning text-center zeroToNineNumber"
+                   x-on:keydown.enter.prevent="$dispatch('focus-b_qty')"                     
+                   x-on:keydown.up.prevent="$dispatch('focus-a'); if (window.$wire) $wire.call('calculateTotal','b')"
+                   x-on:keydown.down.prevent="$dispatch('focus-c'); if (window.$wire) $wire.call('calculateTotal','b')"
+                   x-on:keydown.right.prevent="$dispatch('focus-b_qty'); if (window.$wire) $wire.call('calculateTotal','b')"
+                   x-on:keydown.tab.prevent="if (window.$wire) $wire.call('keyTab','b')">
+        </td>
+        <td>
+            <input type="text" class="form-control bg-light text-dark border-warning text-center number_qty"
+                   id="input_b_qty" wire:model.defer="b_qty"
+                   x-on:keydown.left.prevent="$dispatch('focus-b'); if (window.$wire) $wire.call('calculateTotal','b')"
+                   x-on:keydown.down.prevent="$dispatch('focus-c_qty'); if (window.$wire) $wire.call('calculateTotal','b')"
+                   x-on:keydown.tab.prevent="if (window.$wire) $wire.call('keyTab','b')"
+                   x-on:keydown.up.prevent="$dispatch('focus-a_qty'); if (window.$wire) $wire.call('calculateTotal','b')"
+                   wire:keydown.enter.prevent="keyEnter('b','focus-b')"
+                   x-on:keydown.right.prevent="$dispatch('focus-cross-a')">
+        </td>
+    </tr>
+
+    <!-- C Row -->
+    <tr>
+        <td class="bg-info text-white text-center"><b>C</b></td>
+        <td>
+            <input type="text" id="input_c"
+                   wire:model.debounce.250ms="c"
+                   class="form-control bg-light text-dark border-warning text-center zeroToNineNumber"
+                   x-on:keydown.enter.prevent="$dispatch('focus-c_qty')"                   
+                   x-on:keydown.up.prevent="$dispatch('focus-b'); if (window.$wire) $wire.call('calculateTotal','c')"
+                   x-on:keydown.right.prevent="$dispatch('focus-c_qty'); if (window.$wire) $wire.call('calculateTotal','c')"
+                   x-on:keydown.tab.prevent="if (window.$wire) $wire.call('keyTab','c')">
+        </td>
+        <td>
+            <input type="text" class="form-control bg-light text-dark border-warning text-center number_qty"
+                   id="input_c_qty" wire:model.defer="c_qty"
+                   x-on:keydown.left.prevent="$dispatch('focus-c'); if (window.$wire) $wire.call('calculateTotal','c')"
+                   x-on:keydown.up.prevent="$dispatch('focus-b_qty'); if (window.$wire) $wire.call('calculateTotal','c')"
+                   x-on:keydown.tab.prevent="if (window.$wire) $wire.call('keyTab','c')"
+                   wire:keydown.enter.prevent="keyEnter('c','focus-c')"
+                   x-on:keydown.right.prevent="$dispatch('focus-cross-a')">
+        </td>
+    </tr>
+</tbody>
+
             </table>
         </div>
     </div>
@@ -146,33 +171,26 @@
 
 @script
 <script>
+    // Keyboard shortcuts (keep same behaviour)
     document.addEventListener('keydown', function (e) {
-        // Ctrl + A → focus input_a
         if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'a') {
             e.preventDefault();
-            let el = document.getElementById('input_a');
-            if (el) el.focus();
+            document.getElementById('input_a')?.focus();
         }
-
-        // Ctrl + B → focus input_b
         if (e.ctrlKey && e.key.toLowerCase() === 'b') {
             e.preventDefault();
-            let el = document.getElementById('input_b');
-            if (el) el.focus();
+            document.getElementById('input_b')?.focus();
         }
-
-        // Ctrl + C → focus input_c
         if (e.ctrlKey && e.key.toLowerCase() === 'c') {
             e.preventDefault();
-            let el = document.getElementById('input_c');
-            if (el) el.focus();
+            document.getElementById('input_c')?.focus();
         }
-
-        // Ctrl + Shift + A → focus ABC main input
-        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+        // if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+        //     e.preventDefault();
+        //     document.getElementById('abc')?.focus();
+         if (e.ctrlKey && e.key.toLowerCase() === 'x') {
             e.preventDefault();
-            let el = document.getElementById('abc');
-            if (el) el.focus();
+            document.getElementById('abc')?.focus();
         }
     });
 </script>
@@ -191,7 +209,7 @@
       0 0 0 .25rem rgba(0,255,136,.25),
       0 0 10px rgba(0,255,136,.7) !important;
     background-color: #2a2a2a !important;
-    color: #ffffff !important; /* ensure readable text on dark bg */
+    color: #ffffff !important;
   }
 </style>
 @endscript

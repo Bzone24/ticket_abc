@@ -124,71 +124,85 @@ trait TicketFormAction
     }
 
     // select ticket number
-    public function handleTicketSelect($ticket_number)
-    {
-        $this->clearAllOptionsIntoCache();
-        $this->clearAllCrossAbcIntoCache();
-        $this->resetError();
+  public function handleTicketSelect($ticket_number)
+{
+    $this->clearAllOptionsIntoCache();
+    $this->clearAllCrossAbcIntoCache();
+    $this->resetError();
 
-        $this->selected_ticket = $this->auth_user->tickets()->where('ticket_number', $ticket_number)->first() ?? null;
+    $this->selected_ticket = $this->auth_user->tickets()->where('ticket_number', $ticket_number)->first() ?? null;
 
-        if ($this->selected_ticket) {
-            $this->selected_ticket_number = $ticket_number;
+    $selected_draw_ids = collect();
 
-            $drawIds = $this->getActiveDrawIds();
+    if ($this->selected_ticket) {
+        $this->selected_ticket_number = $ticket_number;
 
-            // get options
-            $option_query = $this->auth_user->options()
-                ->where('ticket_id', $this->selected_ticket->id)
-                ->where(function ($query) use ($drawIds) {
-                    foreach ($drawIds as $id) {
-                        $query->orWhereJsonContains('draw_details_ids', $id);
-                    }
-                });
+        $drawIds = $this->getActiveDrawIds();
 
-            $cross_abc_query = $this->auth_user->crossAbc()
-                ->where('ticket_id', $this->selected_ticket->id)
-                ->where(function ($query) use ($drawIds) {
-                    foreach ($drawIds as $id) {
-                        $query->orWhereJsonContains('draw_details_ids', $id);
-                    }
-                });
+        // get options
+        $option_query = $this->auth_user->options()
+            ->where('ticket_id', $this->selected_ticket->id)
+            ->where(function ($query) use ($drawIds) {
+                foreach ($drawIds as $id) {
+                    $query->orWhereJsonContains('draw_details_ids', $id);
+                }
+            });
 
-            $options = $option_query->get();
-            $cross_abc = $cross_abc_query->get();
+        $cross_abc_query = $this->auth_user->crossAbc()
+            ->where('ticket_id', $this->selected_ticket->id)
+            ->where(function ($query) use ($drawIds) {
+                foreach ($drawIds as $id) {
+                    $query->orWhereJsonContains('draw_details_ids', $id);
+                }
+            });
 
-            if ($options->isNotEmpty()) {
-                $this->optionStoreToCache($options);
-                $selected_draw_ids = $options
-                    ->pluck('draw_details_ids')      // [[56,58], [58,59], ...]
-                    ->flatten()                      // [56,58,58,59,...]
-                    ->unique()
-                    ->intersect($drawIds)            // keep only active draw IDs
-                    ->values();
-            }
+        $options = $option_query->get();
+        $cross_abc = $cross_abc_query->get();
 
-            if ($cross_abc->isNotEmpty()) {
-                $this->storeCrossAbcIntoCache($cross_abc);
-                $selected_draw_ids = $options
-                    ->pluck('draw_details_ids')
-                    ->flatten()
-                    ->unique()
-                    ->intersect($drawIds)
-                    ->values();
-            }
+        if ($options->isNotEmpty()) {
+            // store Options into cache exactly as before
+            $this->optionStoreToCache($options);
+
+            // collect draw ids referenced by options and intersect with open draws
+            $optDraws = $options
+                ->pluck('draw_details_ids')   // arrays
+                ->flatten()
+                ->unique()
+                ->intersect($drawIds)
+                ->values();
+
+            $selected_draw_ids = $selected_draw_ids->merge($optDraws);
         }
 
-        $this->selected_draw = !empty($selected_draw_ids)
-            ? $selected_draw_ids->toArray()
-            : [$this->draw_detail_id];
+        if ($cross_abc->isNotEmpty()) {
+            // store cross abc to cache
+            $this->storeCrossAbcIntoCache($cross_abc);
 
-        $this->setStoreOptions($this->selected_draw);
+            // collect draw ids from cross_abc rows (they also have draw_details_ids)
+            $crossDraws = $cross_abc
+                ->pluck('draw_details_ids')
+                ->flatten()
+                ->unique()
+                ->intersect($drawIds)
+                ->values();
 
-        $this->getTimes();
-        $this->loadOptions(true);
-        $this->loadAbcData(true);
-        $this->dispatch('checked-draws', drawIds: $this->selected_draw);
+            $selected_draw_ids = $selected_draw_ids->merge($crossDraws);
+        }
     }
+
+    // final selected_draw fallback — use the draw_detail_id as before if none detected
+    $this->selected_draw = $selected_draw_ids->isNotEmpty()
+        ? $selected_draw_ids->unique()->values()->toArray()
+        : [$this->draw_detail_id];
+
+    $this->setStoreOptions($this->selected_draw);
+
+    $this->getTimes();
+    $this->loadOptions(true);
+    $this->loadAbcData(true);
+    $this->dispatch('checked-draws', drawIds: $this->selected_draw);
+}
+
 
     public function getTimes()
     {
