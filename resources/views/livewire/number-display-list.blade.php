@@ -364,7 +364,45 @@
                         w.close();
                     }, 200);
                 }
-            }, 150);
+            } catch (e) {
+                // If iframe approach fails, fallback to original inline print (may open new tab)
+        //         const w = window.open('', '', 'width=380,height=800');
+        //         if (!w) {
+        //             alert('Popup blocked — allow popups to print.');
+        //             return;
+        //         }
+        //         w.document.open();
+        //         w.document.write(html);
+        //         w.document.close();
+        //         w.focus();
+        //         setTimeout(() => {
+        //             w.print();
+        //             w.close();
+        //         }, 200);
+        //     }
+        // }, 150);
+
+        const w = window.open('', '_blank', 'width=380,height=900');
+if (!w) { alert('Popup blocked — allow popups to print.'); return; }
+w.document.open();
+w.document.write(html);
+w.document.close();
+w.focus();
+setTimeout(() => { w.print(); w.close(); }, 250);
+}, 140);
+    }
+
+    // Trigger print after server-side emit (keeps original behavior)
+    Livewire.on('ticketSubmitted', () => {
+        printStackedTicket();
+    });
+
+    // Also call print on Submit button click immediately (non-blocking)
+    document.addEventListener('click', function (e) {
+        const el = e.target.closest && e.target.closest('.btn[wire\\:click="submitTicket"]');
+        if (el) {
+            // small delay so Livewire can start processing if needed
+            setTimeout(printStackedTicket, 80);
         }
 
         // Trigger print after server-side emit (keeps original behavior)
