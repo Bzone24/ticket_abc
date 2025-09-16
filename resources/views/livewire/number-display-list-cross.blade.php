@@ -1,0 +1,194 @@
+<div class="card mb-3">
+
+    <!-- Timer Header -->
+    @include('livewire.ticket-data-form')
+
+    <div class="card-header text-black">
+        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom w-100">
+
+            @php
+                // TIMES: prefer $selected_times; fallback to active_draw->formatEndTime()
+                $times = !empty($selected_times)
+                    ? $selected_times
+                    : (isset($active_draw)
+                        ? [$active_draw->formatEndTime()]
+                        : []);
+
+                // GAMES: prefer $selected_game_labels; fallback from games list
+                $labels = !empty($selected_game_labels)
+                    ? $selected_game_labels
+                    : collect($games ?? [])
+                        ->whereIn('id', $selected_games ?? [])
+                        ->map(fn($g) => strtoupper($g->code ?? ($g->short_code ?? ($g->name ?? ''))))
+                        ->values()
+                        ->all();
+            @endphp
+
+            <h6 class="mb-0 w-100 text-center">
+                <strong>Game:</strong> {{ !empty($labels) ? implode(', ', $labels) : '—' }}
+                &nbsp; | &nbsp;
+                <strong>Draw:</strong> {{ !empty($times) ? implode(', ', $times) : '—' }}
+            </h6>
+
+        </div>
+    </div>
+
+
+
+    <div class="card-body pb-2">
+        {{-- Cross ABC Section --}}
+        <div class="mb-2">
+            <h5 class="fw-semibold">Cross ABC</h5>
+
+            <!-- ✅ Fixed height + scroll only inside table area -->
+            <div id="printCrossArea" style="max-height: 300px; overflow-y: auto;">
+
+                <table class="table table-bordered table-striped table-hover mb-0">
+                    <thead class="table-light position-sticky top-0" style="z-index: 1;">
+                        <tr>
+                            <th>#</th>
+                            <th>Option</th>
+                            <th>Number</th>
+                            <th>Amt</th>
+                            <th>Comb</th>
+                            <th>Total</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @forelse (collect($stored_cross_abc_data)->sortBy('option') as $index => $d)
+                            <tr>
+                                <td>{{ $loop->index + 1 }}</td>
+                                <td>{{ $d['option'] }}</td>
+                                <td>{{ $d['number'] }}</td>
+                                <td>{{ $d['amt'] }}</td>
+                                <td>{{ $d['combination'] }}</td>
+                                <td>{{ $d['combination'] * $d['amt'] }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger"
+                                        wire:click="deleteCrossAbc({{ $index }})" title="Delete">
+                                        🗑
+                                    </button>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="text-center">No records found.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+
+                    @php
+                        // base total
+                        $totalAmt = collect($stored_cross_abc_data)->sum(
+                            fn($d) => ($d['amt'] ?? 0) * ($d['combination'] ?? 0),
+                        );
+
+                        // Tolerant count for draws
+                        $drawCount = 1;
+                        if (isset($selected_draw)) {
+                            $drawCount = is_countable($selected_draw) ? max(1, count($selected_draw)) : 1;
+                        }
+
+                        // Determine selected games count (try the common variables your template uses)
+                        if (isset($selected_games) && is_countable($selected_games)) {
+                            $gameCount = max(1, count($selected_games));
+                        } elseif (!empty($selected_game_labels) && is_countable($selected_game_labels)) {
+                            $gameCount = max(1, count($selected_game_labels));
+                        } else {
+                            $gameCount = 1;
+                        }
+
+                        // final total multiplies base amount by draws AND games
+                        $finalTotal = $totalAmt * $drawCount * $gameCount;
+                    @endphp
+
+
+                    <tfoot class="table-light position-sticky bottom-0" style="z-index: 2; background: #fff;">
+                        <tr>
+                            <td colspan="5" class="fw-bold text-danger">
+                                <div class="d-flex flex-column ">
+                                    <span> {{ $totalAmt }} </span>
+                                    <span> Final Total (× {{ $drawCount }} draws × {{ $gameCount }} games):
+                                        {{ $finalTotal }} </span>
+                                    <span>
+                                        @error('draw_detail_cross')
+                                            <div class="text-red-500">{{ $message }}</div>
+                                            {{-- <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                                {{ $message }}
+                                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                            </div> --}}
+                                        @enderror
+                                    <span>
+                                </div>
+                            </td>
+                            <td colspan="2" class="text-end">
+                                <div class="d-flex flex-column gap-2">
+                                    <button class="btn btn-sm btn-danger" wire:click="clearAllCrossAbcIntoCache">
+                                        Clear All
+                                    </button>
+                                    <button class="btn btn-sm btn-primary" wire:click="submitTicket">
+                                        Submit Ticket
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tfoot>
+
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+{{-- Print & Shortcut Script --}}
+@script
+    <script>
+        document.addEventListener('keydown', function(e) {
+            // Detect Ctrl + F12
+            if (e.ctrlKey && e.key === "F12") {
+                e.preventDefault();
+                @this.call('submitTicket');
+            }
+        });
+
+        // After save -> print cross ticket
+        Livewire.on('ticketSubmitted', () => {
+            printCrossTicket();
+        });
+
+        function printCrossTicket() {
+            let content = document.getElementById("printCrossArea")?.innerHTML ?? '';
+            let printWindow = window.open("", "", "width=300,height=600");
+            printWindow.document.write(`
+        <html>
+            <head>
+                <title>Print Cross Ticket</title>
+                <style>
+                    body { font-family: monospace; font-size: 12px; margin: 0; padding: 2px; }
+                    table { width: 100%; border-collapse: collapse; }
+                    th, td { padding: 2px 0; }
+                    th { font-weight: bold; }
+                    hr { border: none; border-top: 1px dashed #000; margin: 4px 0; }
+                </style>
+            </head>
+            <body>
+                <div style="text-align:center; margin-bottom:4px;">
+                    <strong>Ticket No:</strong> {{ $selected_ticket_number ?? '' }}<br>
+                    <strong>Time:</strong> {{ implode(', ', (array) $selected_times) }}
+                </div>
+                <hr>
+                ${content}
+            </body>
+        </html>
+    `);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+        }
+    </script>
+@endscript
