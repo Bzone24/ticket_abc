@@ -76,9 +76,9 @@ trait OptonsOperation
         $hasError = false;
 
         if ($this->abc === null || trim((string) $this->abc) === '') {
-    $this->addError('abc', 'Please Enter The Value');
-    $hasError = true;
-}
+            $this->addError('abc', 'Please Enter The Value');
+            $hasError = true;
+        }
 
         if (empty($this->abc_qty)) {
             $this->addError('abc_qty', 'Please Enter Qty');
@@ -160,7 +160,7 @@ trait OptonsOperation
     public function storeOptionsIntoCache($data)
     {
         $existing = $this->getOptionsIntoCache()->values()->all();
-        $incoming = is_array($data) ? $data : ( $data instanceof Collection ? $data->values()->all() : (array) $data );
+        $incoming = is_array($data) ? $data : ($data instanceof Collection ? $data->values()->all() : (array) $data);
 
         // merge existing first so new entries appear after existing (same as original merge)
         $merged = array_values(array_merge($existing, $incoming));
@@ -250,9 +250,9 @@ trait OptonsOperation
                     ->whereRaw("STR_TO_DATE(end_time,   '%H:%i') >= STR_TO_DATE(?, '%H:%i')", [$now]);
             })->orWhereRaw("STR_TO_DATE(start_time, '%H:%i') > STR_TO_DATE(?, '%H:%i')", [$now]);
         })
-        ->where('date', now('Asia/Kolkata')->toDateString())
-        ->pluck('id')
-        ->toArray();
+            ->where('date', now('Asia/Kolkata')->toDateString())
+            ->pluck('id')
+            ->toArray();
     }
 
     /**
@@ -486,8 +486,8 @@ trait OptonsOperation
 
             // Recalculate totals on the selected draw_details
             $drawDetails = \App\Models\DrawDetail::whereIn('id', $selected_draw_ids)->get();
-            $maximum_cross_amt = auth()->user()->maximum_cross_amount; 
-            $maximum_tq = auth()->user()->maximum_tq; 
+            $maximum_cross_amt = auth()->user()->maximum_cross_amount;
+            $maximum_tq = auth()->user()->maximum_tq;
             $drawDetails = DrawDetail::whereIn('id', $selected_draw_ids)->get();
             foreach ($drawDetails as $detail) {
                 $total_a_qty = $detail->ticketOptions->sum('a_qty') ?? 0;
@@ -496,7 +496,7 @@ trait OptonsOperation
 
                 $total_qty = $total_a_qty + $total_b_qty + $total_c_qty;
                 $total_cross_amt = $detail->crossAbcDetail->sum('amount') ?? 0;
-                
+
                 if ($total_qty > $maximum_tq) {
                     $this->dispatch('swal', [
                         'icon'  => 'error',
