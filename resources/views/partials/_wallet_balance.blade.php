@@ -3,17 +3,17 @@
 @php
     // Decide how to detect admin — adjust to match your app:
     // Option A: if you have an is_admin boolean on users:
-    $isAdmin = auth()->check() && (auth()->user()->is_admin ?? false);
+    $isAdmin = auth()->check() && (auth()->user()->hasRole('admin'));
 
-    // Option B: or if you use a 'role' column:
-    if (!($isAdmin ?? false) && auth()->check()) {
-        $isAdmin = (auth()->user()->role ?? '') === 'admin';
-    }
+    // // Option B: or if you use a 'role' column:
+    // if (!($isAdmin ?? false) && auth()->check()) {
+    //     $isAdmin = (auth()->user()->role ?? '') === 'admin';
+    // }
 
-    // Option C (fallback): treat user id 1 as admin (only if you need quick fallback)
-    if (!($isAdmin ?? false) && auth()->check()) {
-        $isAdmin = auth()->id() === 1;
-    }
+    // // Option C (fallback): treat user id 1 as admin (only if you need quick fallback)
+    // if (!($isAdmin ?? false) && auth()->check()) {
+    //     $isAdmin = auth()->id() === 1;
+    // }
 
 
 $balance = 0;
