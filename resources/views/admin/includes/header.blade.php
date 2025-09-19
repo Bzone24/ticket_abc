@@ -28,6 +28,10 @@
           </ul> --}}
           <div class="navbar-collapse justify-content-end px-0" id="navbarNav">
             <ul class="navbar-nav flex-row ms-auto align-items-center justify-content-end">
+<li class="nav-item me-3">
+    @include('partials._wallet_balance')
+</li>
+
                
               <li class="nav-item dropdown">
                 <a class="nav-link " href="javascript:void(0)" id="drop2" data-bs-toggle="dropdown"

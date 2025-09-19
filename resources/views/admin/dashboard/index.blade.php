@@ -226,73 +226,83 @@
                     addTotalsRow(); 
                 });
 
-                // Auto-refresh DataTable every 10 seconds and highlight changed cells
-                setInterval(function() {
-                    let oldData = {};
-                    // Build snapshot keyed by TIME column (index 1)
-                    table.rows().every(function () {
-                        let node = $(this.node());
-                        let key = node.find("td:eq(1)").text().trim(); // Time
-                        if (key) {
-                            oldData[key] = node.find("td").map(function() {
-                                return $(this).text().trim();
-                            }).get();
+      // --- Auto-refresh DataTable every 10 seconds and highlight only numeric changes ---
+setInterval(function() {
+    let oldData = {};
+
+    // Build snapshot keyed by stable ID (prefer data-draw-detail-id, fallback to Time text)
+    table.rows().every(function () {
+        let node = $(this.node());
+        // prefer stable id attribute if present on row or a button inside row
+        let id = node.data('draw-detail-id') || node.find('[data-draw-detail-id]').data('draw-detail-id') || node.find("td:eq(1)").text().trim();
+        if (!id) return;
+
+        // capture only the columns we want to compare numerically
+        // adjust indices if your columns change; these follow your comment mapping:
+        // 2 -> TQ, 3 -> T Amt, 4 -> Claim, 5 -> Camt, 6 -> P&L
+        const numericCols = [2,3,4,5,6];
+
+        oldData[id] = {};
+        numericCols.forEach(idx => {
+            let text = node.find("td").eq(idx).text().trim().replace(/,/g, "");
+            let num = parseFloat(text);
+            // store either a real number or null (so non-numeric won't be compared)
+            oldData[id][idx] = isNaN(num) ? null : num;
+        });
+    });
+
+    // Reload via DataTables' ajax reload and compare after reload finishes
+    table.ajax.reload(function () {
+        table.rows().every(function () {
+            let rowNode = $(this.node());
+            // skip totals/footers or artificially appended rows
+            if (rowNode.attr('id') === 'totals-row') return;
+
+            let id = rowNode.data('draw-detail-id') || rowNode.find('[data-draw-detail-id]').data('draw-detail-id') || rowNode.find("td:eq(1)").text().trim();
+            if (!id) return;
+
+            // numeric columns to check
+            const numericCols = [2,3,4,5,6];
+
+            // if we had previous snapshot for this id compare numeric columns only
+            let prev = oldData[id];
+            if (prev) {
+                numericCols.forEach(idx => {
+                    let cell = rowNode.find("td").eq(idx);
+                    let newText = cell.text().trim().replace(/,/g, "");
+                    let newNum = parseFloat(newText);
+                    let oldNum = prev[idx];
+
+                    // only act when both oldNum and newNum are valid numbers and are different
+                    if (oldNum !== null && !isNaN(newNum)) {
+                        if (newNum > oldNum) {
+                            cell.addClass("flash-green");
+                            setTimeout(() => cell.removeClass("flash-green"), 2000);
+                        } else if (newNum < oldNum) {
+                            cell.addClass("flash-red");
+                            setTimeout(() => cell.removeClass("flash-red"), 2000);
                         }
-                    });
+                        // if equal, do nothing
+                    }
+                    // if previously non-numeric or new is non-numeric -> do nothing (no flash)
+                });
+            } else {
+                // New row (no previous snapshot) — if you want to highlight new rows, do it here.
+                // For your request (no effect on every refresh) we will NOT flash new rows.
+                // If you do want a subtle highlight for new rows, uncomment:
+                // rowNode.addClass("flash-green"); setTimeout(()=>rowNode.removeClass("flash-green"),2000);
+            }
+        });
 
-                    // Reload via DataTables' ajax reload and compare
-                    table.ajax.reload(function () {
-                        table.rows().every(function () {
-                            let rowNode = $(this.node());
-                            let key = rowNode.find("td:eq(1)").text().trim(); // Time
-                            let newRow = rowNode.find("td").map(function() {
-                                return $(this).text().trim();
-                            }).get();
+        // update timestamp
+        let stampEl = document.getElementById("drawDetailsUpdatedAt");
+        if (stampEl) {
+            stampEl.innerText = new Date().toLocaleTimeString();
+        }
+    }, false);
 
-                            let oldRow = oldData[key];
+}, 10000);
 
-                            if (oldRow) {
-                                newRow.forEach((cell, colIdx) => {
-                                    if (oldRow[colIdx] != cell) {
-                                        let td = rowNode.find("td").eq(colIdx);
-
-                                        // Try numeric comparison if both old/new parse to numbers
-                                        let newNum = parseFloat(cell.replace(/,/g, ""));
-                                        let oldNum = parseFloat(oldRow[colIdx]?.replace(/,/g, ""));
-
-                                        if (!isNaN(newNum) && !isNaN(oldNum)) {
-                                            if (newNum > oldNum) {
-                                                td.addClass("flash-green");
-                                                setTimeout(() => td.removeClass("flash-green"), 2000);
-                                            } else if (newNum < oldNum) {
-                                                td.addClass("flash-red");
-                                                setTimeout(() => td.removeClass("flash-red"), 2000);
-                                            } else {
-                                                // no numeric change, but string changed (unlikely)
-                                                td.addClass("flash-green");
-                                                setTimeout(() => td.removeClass("flash-green"), 2000);
-                                            }
-                                        } else {
-                                            // Non-numeric change (text changed) -> green flash
-                                            td.addClass("flash-green");
-                                            setTimeout(() => td.removeClass("flash-green"), 2000);
-                                        }
-                                    }
-                                });
-                            } else {
-                                // New row appeared -> highlight entire row
-                                rowNode.addClass("flash-green");
-                                setTimeout(() => rowNode.removeClass("flash-green"), 2000);
-                            }
-                        });
-
-                        // update timestamp
-                        let stampEl = document.getElementById("drawDetailsUpdatedAt");
-                        if (stampEl) {
-                            stampEl.innerText = new Date().toLocaleTimeString();
-                        }
-                    }, false);
-                }, 10000);
             }
 
             // OTP + Claim Button logic (unchanged)

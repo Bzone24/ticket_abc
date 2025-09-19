@@ -1,4 +1,4 @@
-<div wire:poll.5s>
+<div wire:poll.visible>
     <div class="row">
         <div class="col-12 mb-3">
             <div class="card" >

@@ -5,7 +5,7 @@
 
     <div class="card-body p-0" style="background-color: #212529;">
         <!-- ✅ Scrollable Table Wrapper -->
-        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+        <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
             <table class="table table-dark table-bordered table-striped table-hover mb-0">
                 <thead class="bg-secondary text-white position-sticky top-0" style="z-index: 1;">
                     <tr>

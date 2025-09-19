@@ -97,5 +97,17 @@
             window.location.reload();
         });
     });
+
+
+      // 🔹 Immediate reload when client timer hits 0
+    window.addEventListener('countdownZero', () => location.reload());
+
+    // 🔹 Also reload when Livewire server dispatches its authoritative event
+    window.addEventListener('drawsRefreshed', () => location.reload());
+    window.addEventListener('draws-refreshed', () => location.reload());
+    if (window.Livewire && Livewire.on) {
+        Livewire.on('drawsRefreshed', () => location.reload());
+    }
+    
 </script>
 @endscript

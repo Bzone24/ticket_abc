@@ -10,13 +10,13 @@
 
                 // Decide time format based on presence of seconds
                 $formatFromString = function ($s) {
-                    return (is_string($s) && substr_count($s, ':') >= 2) ? 'g:i:s A' : 'g:i A';
+                    return is_string($s) && substr_count($s, ':') >= 2 ? 'g:i:s A' : 'g:i A';
                 };
 
                 $addOneMinute = function ($t) use ($formatFromString) {
                     try {
                         $dt = \Illuminate\Support\Carbon::parse($t)->addMinute();
-                        $fmt = $formatFromString((string)$t);
+                        $fmt = $formatFromString((string) $t);
                         return $dt->format($fmt);
                     } catch (\Throwable $e) {
                         return $t;
@@ -36,10 +36,10 @@
                 $labels = !empty($selected_game_labels)
                     ? $selected_game_labels
                     : collect($games ?? [])
-                          ->whereIn('id', $selected_games ?? [])
-                          ->map(fn($g) => strtoupper($g->code ?? $g->short_code ?? $g->name ?? ''))
-                          ->values()
-                          ->all();
+                        ->whereIn('id', $selected_games ?? [])
+                        ->map(fn($g) => strtoupper($g->code ?? ($g->short_code ?? ($g->name ?? ''))))
+                        ->values()
+                        ->all();
             @endphp
 
             <h6 class="mb-0 w-100 text-center">
@@ -60,7 +60,7 @@
                 <table class="table table-bordered table-striped table-hover mb-0 text-center fw-bold">
                     <thead class="table-light position-sticky top-0" style="z-index: 1;">
                         <tr>
-                            <th>#</th>
+                            {{-- <th>#</th> --}}
                             <th>Option</th>
                             <th>Number</th>
                             <th>Qty</th>
@@ -78,9 +78,8 @@
                                 <td>{{ $option['qty'] }}</td>
                                 <td>{{ $option['total'] }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-danger"
-                                            wire:click="deleteOption({{ $index }})"
-                                            title="Delete">
+                                    <button class="btn btn-sm btn-danger" wire:click="deleteOption({{ $index }})"
+                                        title="Delete">
                                         🗑
                                     </button>
                                 </td>
@@ -111,39 +110,32 @@
 
                     <tfoot class="table-light position-sticky bottom-0" style="z-index: 2; background: #fff;">
                         <tr>
-                            <td colspan="4" class="fw-bold text-danger ">
-                                <div class="d-flex flex-column ">
+                            <td colspan="1" class="text-center">
+
+                                <button class="btn btn-sm btn-danger" wire:click="clearAllOptionsIntoCache()">
+                                    Clear All
+                                </button>
+                            </td>
+                            <td colspan="6" class="fw-bold text-danger ">
+                                <div class="d-flex justify-content-between align-items-center">
                                     <span>
                                         TQ: {{ $tq }}
-                                    </span>
-                                    <span>
                                         Total: {{ $total }}
-                                    </span>
-                                    <span>
-                                        Final Total (× {{ $drawCount }} draws × {{ $gameCount }} games):
+                                        FT (× {{ $drawCount }} draws ):
                                         {{ $finalTotal }}
                                     </span>
                                     <span>
                                         @error('draw_detail_simple')
                                             <div class="text-red-500">{{ $message }}</div>
-                                            {{-- <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                                {{ $message }}
-                                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                            </div> --}}
                                         @enderror
-                                    <span>
-                                </div>
+                                        <span>
+
+                                            <button class="btn btn-sm btn-primary" wire:click="submitTicket">
+                                                Submit Ticket
+                                            </button>
+
                             </td>
-                            <td colspan="2" class="text-end">
-                                <div class="d-flex flex-column gap-2">
-                                    <button class="btn btn-sm btn-danger" wire:click="clearAllOptionsIntoCache()">
-                                        Clear All
-                                    </button>
-                                    <button class="btn btn-sm btn-primary" wire:click="submitTicket">
-                                        Submit Ticket
-                                    </button>
-                                </div>
-                            </td>
+
                         </tr>
                     </tfoot>
                 </table>
@@ -155,246 +147,385 @@
 
 {{-- Print + Shortcut Script --}}
 @script
+    <script>
+        // === minimal, non-invasive improvements to printing ===
 
-<script>
-    window.COMBINED_PRINTER = true;
+        // keep this global flag name to stay compatible
+        window.COMBINED_PRINTER = true;
 
-    // helper: clone panel, strip interactive bits and remove last column (Action)
-    function cleanPanelHtml(elem, title) {
-        if (!elem) return '';
-        const table = elem.querySelector('table');
-        const wrapper = document.createElement('div');
-        wrapper.className = 'panel-wrap';
+        // short-lived guard to avoid duplicate prints (2 seconds)
+        window._printingRecently = false;
+        window._lastPrintArgs = null;
 
-        if (title) {
-            const h = document.createElement('div');
-            h.textContent = title;
-            h.style.fontWeight = '700';
-            h.style.marginBottom = '6px';
-            wrapper.appendChild(h);
+        // Utility: prevent duplicate triggers (by ticketNo + drawTime)
+        function _shouldProceedWithPrint(ticketNo, drawTime) {
+            const key = `${ticketNo}::${drawTime}`;
+            if (window._printingRecently && window._lastPrintArgs === key) return false;
+            window._printingRecently = true;
+            window._lastPrintArgs = key;
+            // reset after 2000ms
+            setTimeout(() => {
+                window._printingRecently = false;
+                window._lastPrintArgs = null;
+            }, 2000);
+            return true;
         }
 
-        if (table) {
-            const t = table.cloneNode(true);
+        // Faster cleanPanelHtml:
+        // - minimize querySelectorAll calls
+        // - remove only known action elements
+        function cleanPanelHtml(elem, title) {
+            if (!elem) return '';
+            // if elem is container (like #printSimpleArea) we want to use its inner table only
+            const table = elem.querySelector ? elem.querySelector('table') : null;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'panel-wrap';
 
-            // Remove interactive elements and attributes in one pass
-            t.querySelectorAll('button, input, textarea, select, .no-print, .btn').forEach(n => n.remove());
-            t.querySelectorAll('[wire\\:click]').forEach(n => n.removeAttribute('wire:click'));
-            t.querySelectorAll('[wire\\:key]').forEach(n => n.removeAttribute('wire:key'));
+            if (title) {
+                const h = document.createElement('div');
+                h.textContent = title;
+                h.style.fontWeight = '700';
+                h.style.marginBottom = '6px';
+                wrapper.appendChild(h);
+            }
 
-            // Remove Action column from header and body only
-            t.querySelectorAll('thead tr').forEach(r => {
-                const lastTh = r.querySelector('th:last-child');
-                if (lastTh) lastTh.remove();
+            // operate on a shallow clone of table or the element (avoid deep walking of entire document)
+            const target = table ? table.cloneNode(true) : elem.cloneNode(true);
+
+            // Remove interactive elements (single pass)
+            const interactive = target.querySelectorAll('button, input, textarea, select, .no-print, .btn, a');
+            for (let i = 0; i < interactive.length; i++) interactive[i].remove();
+
+            // Remove Livewire attributes in a single pass
+            const attrElements = target.querySelectorAll('[wire\\:click],[wire\\:key],[wire\\:model]');
+            for (let i = 0; i < attrElements.length; i++) {
+                attrElements[i].removeAttribute('wire:click');
+                attrElements[i].removeAttribute('wire:key');
+                attrElements[i].removeAttribute('wire:model');
+            }
+
+            // Remove Action column safely: look for header cell containing 'Action' or the last column
+            const theadRow = target.querySelector('thead tr');
+            if (theadRow) {
+                const ths = theadRow.querySelectorAll('th');
+                // find index of header with text 'Action' (case-insensitive) if exists
+                let actionIdx = -1;
+                for (let i = 0; i < ths.length; i++) {
+                    if ((ths[i].textContent || '').trim().toLowerCase().includes('action')) {
+                        actionIdx = i;
+                        break;
+                    }
+                }
+                if (actionIdx === -1 && ths.length > 0) actionIdx = ths.length - 1; // fallback to last
+                if (actionIdx >= 0) {
+                    if (ths[actionIdx]) ths[actionIdx].remove();
+                    // remove corresponding td from each body row
+                    const bodyRows = target.querySelectorAll('tbody tr');
+                    for (let r = 0; r < bodyRows.length; r++) {
+                        const tds = bodyRows[r].querySelectorAll('td');
+                        if (tds.length > actionIdx) tds[actionIdx].remove();
+                    }
+                }
+            }
+
+            // Remove buttons inside tfoot but keep footer cell content
+            const tfootBtns = target.querySelectorAll(
+                'tfoot button, tfoot .btn, tfoot input, tfoot select, tfoot textarea, tfoot a');
+            for (let i = 0; i < tfootBtns.length; i++) tfootBtns[i].remove();
+
+            wrapper.appendChild(target);
+            return wrapper.outerHTML;
+        }
+
+        // Lightweight visible-text fallback (same as before but faster)
+        function extractVisibleTicketAndDraw() {
+            const text = (document.body && document.body.innerText) ? document.body.innerText : '';
+            let ticketNo = '';
+            let drawText = '';
+
+            const tn = text.match(/Ticket\s*No[:\s]*([A-Za-z0-9\-\_]+)/i);
+            if (tn) ticketNo = tn[1].trim();
+
+            const d = text.match(/Draw[:\s]*([^\n\r]+)/i);
+            if (d) {
+                drawText = d[1].trim().replace(/\s{2,}/g, ' ');
+                drawText = drawText.split(/\r?\n/)[0].trim();
+            }
+            return {
+                ticketNo,
+                drawText
+            };
+        }
+
+        // Try WebUSB or WebSerial ESC/POS printing (silent after permission) as the highest-priority silent path.
+        // NOTE: this is a minimal starter: ESC/POS payload generation is printer-specific; this demonstrates the connect/transfer flow.
+        async function tryDirectPrinter(bytesToSend) {
+            // Try Web Serial first (many receipt printers expose serial-over-usb)
+            if (navigator.serial) {
+                try {
+                    const ports = await navigator.serial.getPorts();
+                    let port = ports.length ? ports[0] : null;
+                    if (!port) {
+                        // request user to select device (one-time permission)
+                        port = await navigator.serial.requestPort();
+                    }
+                    await port.open({
+                        baudRate: 19200
+                    });
+                    const writer = port.writable.getWriter();
+                    await writer.write(bytesToSend);
+                    writer.releaseLock();
+                    await port.close();
+                    return true;
+                } catch (err) {
+                    console.warn('WebSerial print failed:', err);
+                    // fallthrough to other methods
+                }
+            }
+
+            // Try WebUSB (some ESC/POS printers support simple USB bulk transfer)
+            if (navigator.usb) {
+                try {
+                    const devices = await navigator.usb.getDevices();
+                    let dev = devices.length ? devices[0] : null;
+                    if (!dev) {
+                        // this will open a device picker for the user
+                        dev = await navigator.usb.requestDevice({
+                            filters: []
+                        }); // no filter to let user pick
+                    }
+                    await dev.open();
+                    if (dev.configuration === null) await dev.selectConfiguration(1);
+                    await dev.claimInterface(0);
+                    // endpoint 1 is common but not guaranteed; real code should probe endpoints.
+                    await dev.transferOut(1, bytesToSend);
+                    await dev.close();
+                    return true;
+                } catch (err) {
+                    console.warn('WebUSB print failed:', err);
+                }
+            }
+
+            return false; // couldn't silently print
+        }
+
+        // Convert HTML text (string) to a basic ESC/POS byte stream (very naive; for small receipts)
+        // In production you should use a dedicated library to format ESC/POS payloads.
+        function htmlToEscPosBytes(html) {
+            // Simplest approach: strip tags and send as UTF-8 bytes + line feeds; not full styling
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            const text = tmp.innerText || tmp.textContent || '';
+            // basic ESC/POS line feed after each newline
+            const encoder = new TextEncoder();
+            const lines = text.split(/\r?\n/);
+            const arr = [];
+            for (let i = 0; i < lines.length; i++) {
+                const b = encoder.encode(lines[i] + '\n');
+                arr.push(b);
+            }
+            // concat into single Uint8Array
+            let total = 0;
+            arr.forEach(a => total += a.length);
+            const out = new Uint8Array(total);
+            let offset = 0;
+            arr.forEach(a => {
+                out.set(a, offset);
+                offset += a.length;
             });
-            t.querySelectorAll('tbody tr').forEach(r => {
-                const lastTd = r.querySelector('td:last-child');
-                if (lastTd) lastTd.remove();
-            });
-
-            // Remove buttons inside tfoot but keep footer totals structure
-            t.querySelectorAll('tfoot button, tfoot .btn, tfoot input, tfoot select, tfoot textarea').forEach(n => n.remove());
-
-            wrapper.appendChild(t);
-        } else {
-            const clone = elem.cloneNode(true);
-            clone.querySelectorAll('button, input, textarea, select, .no-print, .btn').forEach(n => n.remove());
-            clone.querySelectorAll('[wire\\:click]').forEach(n => n.removeAttribute('wire:click'));
-            wrapper.appendChild(clone);
+            return out;
         }
 
-        return wrapper.outerHTML;
-    }
+        // Main print function (keeps name for compatibility)
+        function printStackedTicket() {
+            // small defer to allow UI / Livewire to start changes
+            setTimeout(async () => {
+                // fast capture of elements (avoid many queries)
+                const simpleElem = document.getElementById('printSimpleArea');
+                const crossElem = document.getElementById('printCrossArea');
+                const classAreas = simpleElem || crossElem ? null : Array.from(document.querySelectorAll(
+                    '.print-area'));
+                const simple = simpleElem || (classAreas && classAreas[0]) || null;
+                const cross = crossElem || (classAreas && classAreas[1]) || classAreas && classAreas[0] || null;
 
-    function extractVisibleTicketAndDraw() {
-        const text = (document.body && document.body.innerText) ? document.body.innerText : '';
-        let ticketNo = '';
-        let drawText = '';
+                if (!simple && !cross) {
+                    alert('No ticket content found to print (Simple / Cross panels missing).');
+                    return;
+                }
 
-        const tn = text.match(/Ticket\s*No[:\s]*([A-Za-z0-9\-\_]+)/i);
-        if (tn) ticketNo = tn[1].trim();
+                const simpleHtml = simple ? cleanPanelHtml(simple, 'Simple ABC') : '';
+                const crossHtml = cross ? cleanPanelHtml(cross, 'Cross ABC') : '';
 
-        const d = text.match(/Draw[:\s]*([^\n\r]+)/i);
-        if (d) {
-            drawText = d[1].trim().replace(/\s{2,}/g, ' ');
-            drawText = drawText.split(/\r?\n/)[0].trim();
-        }
+                // server-provided values (unchanged)
+                let ticketNo = {!! json_encode($selected_ticket->ticket_number ?? null) !!} || '';
+                let drawTimeRaw = {!! json_encode($times ?? null) !!} || null;
 
-        return { ticketNo, drawText };
-    }
+                let drawTime = '';
+                if (Array.isArray(drawTimeRaw)) {
+                    drawTime = drawTimeRaw.join(', ');
+                } else if (typeof drawTimeRaw === 'string' && drawTimeRaw.length) {
+                    drawTime = drawTimeRaw;
+                }
 
-    /**
-     * printStackedTicket
-     * - Builds the same HTML payload as before
-     * - Creates a hidden iframe, writes the HTML into it and calls print()
-     * - Removes the iframe after printing
-     */
-    function printStackedTicket() {
-        setTimeout(() => {
-            const simpleElem = document.getElementById('printSimpleArea');
-            const crossElem  = document.getElementById('printCrossArea');
+                // fallback to visible text if missing
+                if (!ticketNo || !drawTime) {
+                    const visible = extractVisibleTicketAndDraw();
+                    if (!ticketNo && visible.ticketNo) ticketNo = visible.ticketNo;
+                    if (!drawTime && visible.drawText) drawTime = visible.drawText;
+                }
 
-            const classAreas = Array.from(document.querySelectorAll('.print-area'));
-            const simple = simpleElem || classAreas[0] || null;
-            const cross  = crossElem  || classAreas[1] || classAreas[0] || null;
+                ticketNo = ticketNo || '';
+                drawTime = drawTime || '';
 
-            if (!simple && !cross) {
-                alert('No ticket content found to print (Simple / Cross panels missing).');
-                return;
-            }
+                // prevent duplicate prints of the same ticket/draw within short time
+                if (!_shouldProceedWithPrint(ticketNo, drawTime)) return;
 
-            const simpleHtml = simple ? cleanPanelHtml(simple, 'Simple ABC') : '';
-            const crossHtml  = cross  ? cleanPanelHtml(cross, 'Cross ABC')  : '';
+                const styles = `
+            <style>
+              @page { size: auto; margin: 4mm; }
+              html, body { height: auto; }
+              body { font-family: monospace; font-size: 12px; margin: 0; padding: 4px; color:#000; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { padding: 4px 6px; border-bottom: 1px dotted #000; text-align: left; font-size:11px; }
+              thead th { font-weight:700; }
+              .section { margin-bottom: 6px; }
+              .title { font-weight:bold; text-align:center; margin: 6px 0; }
+              .panel-wrap { margin-bottom:6px; }
+            </style>
+        `;
 
-            // prefer server-provided values if present, otherwise read from page
-            let ticketNo = {!! json_encode($selected_ticket->ticket_number ?? null) !!} || '';
-            let drawTimeRaw = {!! json_encode($times ?? null) !!} || null;
+                const html = `
+            <html>
+              <head><title>Print Ticket</title>${styles}</head>
+              <body>
+                <div class="title">Ticket No: ${ticketNo} | Draw: ${drawTime}</div>
+                <div class="section">${simpleHtml}</div>
+                <div class="section">${crossHtml}</div>
+              </body>
+            </html>
+        `;
 
-            let drawTime = '';
-            if (Array.isArray(drawTimeRaw)) {
-                drawTime = drawTimeRaw.join(', ');
-            } else if (typeof drawTimeRaw === 'string' && drawTimeRaw.length) {
-                drawTime = drawTimeRaw;
-            }
+                // === Try silent direct print via WebSerial/WebUSB (if user/device supports it) ===
+                try {
+                    const escBytes = htmlToEscPosBytes(html);
+                    const printed = await tryDirectPrinter(escBytes);
+                    if (printed) {
+                        // trigger DB submit flow remains same: Livewire will handle submitTicket elsewhere
+                        return;
+                    }
+                } catch (err) {
+                    console.warn('Direct printer attempt failed:', err);
+                }
 
-            // fallback to visible page if either missing
-            if (!ticketNo || !drawTime) {
-                const visible = extractVisibleTicketAndDraw();
-                if (!ticketNo && visible.ticketNo) ticketNo = visible.ticketNo;
-                if (!drawTime && visible.drawText) drawTime = visible.drawText;
-            }
+                // === If not silent-capable environment, prefer kiosk mode (no-dialog) if browser configured ===
+                // You cannot detect kiosk-printing flag reliably from page; continue to iframe fallback.
+                // === iframe fallback (improved, smaller, quicker) ===
+                try {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.position = 'fixed';
+                    iframe.style.right = '0';
+                    iframe.style.bottom = '0';
+                    iframe.style.width = '380px';
+                    iframe.style.height = '1px';
+                    iframe.style.border = '0';
+                    iframe.style.overflow = 'hidden';
+                    iframe.setAttribute('aria-hidden', 'true');
+                    document.body.appendChild(iframe);
 
-            ticketNo = ticketNo || '';
-            drawTime = drawTime || '';
-
-            const styles = `
-                <style>
-                  body { font-family: monospace; font-size: 12px; margin: 0; padding: 4px; color:#000; }
-                  table { width: 100%; border-collapse: collapse; }
-                  th, td { padding: 4px 6px; border-bottom: 1px dotted #000; text-align: left; font-size:11px; }
-                  thead th { font-weight:700; }
-                  .section { margin-bottom: 10px; }
-                  .title { font-weight:bold; text-align:center; margin: 6px 0; }
-                  .panel-wrap { margin-bottom:8px; }
-                </style>
-            `;
-
-            const html = `
-                <html>
-                  <head><title>Print Ticket</title>${styles}</head>
-                  <body>
-                    <div class="title">Ticket No: ${ticketNo} | Draw: ${drawTime}</div>
-                    <div class="section">${simpleHtml}</div>
-                    <div class="section">${crossHtml}</div>
-                    <div style="margin-top:8px; font-size:10px;">Printed: ${ new Date().toLocaleString() }</div>
-                  </body>
-                </html>
-            `;
-
-            // Create a hidden iframe and write the HTML into it
-            const iframe = document.createElement('iframe');
-            iframe.style.position = 'fixed';
-            iframe.style.right = '0';
-            iframe.style.bottom = '0';
-            iframe.style.width = '0';
-            iframe.style.height = '0';
-            iframe.style.border = '0';
-            iframe.style.overflow = 'hidden';
-            iframe.setAttribute('aria-hidden', 'true');
-
-            // Append first so srcdoc / onload fire reliably in browsers
-            document.body.appendChild(iframe);
-
-            // Use srcdoc if supported, otherwise write into iframe document
-            try {
-                if ('srcdoc' in iframe) {
-                    iframe.srcdoc = html;
-                    iframe.onload = function () {
+                    const finalizeAndPrint = () => {
                         try {
-                            iframe.contentWindow.focus();
-                            iframe.contentWindow.print();
-                        } catch (err) {
-                            // fallback to writing and printing
-                            try {
-                                iframe.contentDocument.open();
-                                iframe.contentDocument.write(html);
-                                iframe.contentDocument.close();
+                            setTimeout(() => {
                                 iframe.contentWindow.focus();
                                 iframe.contentWindow.print();
-                            } catch (e) {
-                                // last resort: alert user
-                                alert('Printing failed in this browser.');
-                            }
-                        }
-                        // remove iframe after small delay to allow print dialog to initialize
-                        setTimeout(() => iframe.remove(), 1000);
-                    };
-                } else {
-                    // Older browsers: write directly
-                    const idoc = iframe.contentWindow.document;
-                    idoc.open();
-                    idoc.write(html);
-                    idoc.close();
-                    iframe.onload = function () {
-                        try {
-                            iframe.contentWindow.focus();
-                            iframe.contentWindow.print();
+                                setTimeout(() => iframe.remove(), 1200);
+                            }, 120);
                         } catch (err) {
-                            alert('Printing failed in this browser.');
+                            // popup fallback (last resort)
+                            const w = window.open('', '', 'width=380,height=600');
+                            if (!w) {
+                                alert('Popup blocked — allow popups to print.');
+                                iframe.remove();
+                                return;
+                            }
+                            w.document.open();
+                            w.document.write(html);
+                            w.document.close();
+                            w.focus();
+                            setTimeout(() => {
+                                w.print();
+                                w.close();
+                            }, 200);
                         }
-                        setTimeout(() => iframe.remove(), 1000);
                     };
+
+                    if ('srcdoc' in iframe) {
+                        iframe.srcdoc = html;
+                        iframe.onload = function() {
+                            try {
+                                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                                const body = doc.body;
+                                setTimeout(() => {
+                                    const height = Math.max(body.scrollHeight, body.offsetHeight,
+                                        doc.documentElement.scrollHeight);
+                                    iframe.style.height = (height + 10) + 'px';
+                                    finalizeAndPrint();
+                                }, 60);
+                            } catch (err) {
+                                finalizeAndPrint();
+                            }
+                        };
+                    } else {
+                        const idoc = iframe.contentWindow.document;
+                        idoc.open();
+                        idoc.write(html);
+                        idoc.close();
+                        iframe.onload = function() {
+                            try {
+                                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                                const body = doc.body;
+                                setTimeout(() => {
+                                    const height = Math.max(body.scrollHeight, body.offsetHeight,
+                                        doc.documentElement.scrollHeight);
+                                    iframe.style.height = (height + 10) + 'px';
+                                    finalizeAndPrint();
+                                }, 60);
+                            } catch (err) {
+                                finalizeAndPrint();
+                            }
+                        };
+                    }
+                } catch (e) {
+                    // final fallback: popup
+                    const w = window.open('', '', 'width=380,height=600');
+                    if (!w) {
+                        alert('Popup blocked — allow popups to print.');
+                        return;
+                    }
+                    w.document.open();
+                    w.document.write(html);
+                    w.document.close();
+                    w.focus();
+                    setTimeout(() => {
+                        w.print();
+                        w.close();
+                    }, 200);
                 }
-            } catch (e) {
-                // If iframe approach fails, fallback to original inline print (may open new tab)
-        //         const w = window.open('', '', 'width=380,height=800');
-        //         if (!w) {
-        //             alert('Popup blocked — allow popups to print.');
-        //             return;
-        //         }
-        //         w.document.open();
-        //         w.document.write(html);
-        //         w.document.close();
-        //         w.focus();
-        //         setTimeout(() => {
-        //             w.print();
-        //             w.close();
-        //         }, 200);
-        //     }
-        // }, 150);
 
-        const w = window.open('', '_blank', 'width=380,height=900');
-if (!w) { alert('Popup blocked — allow popups to print.'); return; }
-w.document.open();
-w.document.write(html);
-w.document.close();
-w.focus();
-setTimeout(() => { w.print(); w.close(); }, 250);
-}, 140);
-    }
-
-    // Trigger print after server-side emit (keeps original behavior)
-    Livewire.on('ticketSubmitted', () => {
-        printStackedTicket();
-    });
-
-    // Also call print on Submit button click immediately (non-blocking)
-    document.addEventListener('click', function (e) {
-        const el = e.target.closest && e.target.closest('.btn[wire\\:click="submitTicket"]');
-        if (el) {
-            // small delay so Livewire can start processing if needed
-            setTimeout(printStackedTicket, 80);
+            }, 120);
         }
-    }, true);
 
-    // Keyboard shortcut: F12 triggers printStackedTicket (does not block default F12)
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'F12') {
+
+        Livewire.on('ticketSubmitted', () => {
             printStackedTicket();
-        }
-    });
-</script>
+        });
 
+        // (NO click listener here any more)
+
+        // Keep F12 shortcut if you want:
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F12') {
+                printStackedTicket();
+            }
+        });
+    </script>
 @endscript
-
-

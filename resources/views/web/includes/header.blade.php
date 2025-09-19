@@ -6,6 +6,10 @@
           </button>
           <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
               <ul class="navbar-nav me-3">
+@if(Auth::check())
+    <li class="nav-item ms-2 text-white">@include('partials._wallet_balance')</li>
+@endif
+
                   @if (Auth::check())
                       <li class="nav-item"><a class="nav-link" href="{{ route('dashboard') }}">Dashboard</a></li>
                       {{-- <li class="nav-item"><a class="nav-link" href="{{ route('ticket') }}">Tickets</a></li> --}}

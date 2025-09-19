@@ -5,7 +5,7 @@
         </h5>
     </div>
 
-    <div class="card-body p-0 d-flex flex-column" wire:poll.5s="loadDraws">
+    <div class="card-body p-0 d-flex flex-column" wire:poll.visible="loadDraws">
         <!-- Scrollable list -->
         <div class="list-group list-group-flush overflow-auto" style="height:400px; font-size: larger;">
 

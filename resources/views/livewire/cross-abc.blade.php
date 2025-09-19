@@ -165,71 +165,39 @@
 </div>
         </div>
 
-{{-- @script
-<script>
-(function () {
-    // ---- Input sanitizers (kept using jQuery for compatibility) ----
-    $(document).on('input', '.cross_number', function () {
-        let v = $(this).val().replace(/[^0-9]/g, '');
-        const uniq = Array.from(new Set(v.split(''))).join('').substring(0, 3);
-        if (v !== uniq) $(this).val(uniq);
-    });
 
-    $(document).on('input', '.mynumber', function () {
-        const v = $(this).val().replace(/[^0-9]/g, '');
-        if (v !== $(this).val()) $(this).val(v);
-    });
-
-    // ---- Focus mapping for dispatched CustomEvents ----
-    const focusMap = {
-        'focus-cross-abc': 'cross_abc',
-        'focus-cross-abc-qty': 'cross_qty',
-        'focus-cross-abc-combination': 'cross_combination',
-        'focus-cross-a': 'cross_a',
-        'focus-cross-b': 'cross_b',
-        'focus-cross-c': 'cross_c',
-        'focus-cross-single-amt': 'cross_single_amount',
-        'focus-cross-ab': 'cross_ab',
-        'focus-cross-ab-amt': 'cross_ab_amt',
-        'focus-cross-bc': 'cross_bc',
-        'focus-cross-bc-amt': 'cross_bc_amt',
-        'focus-cross-ac': 'cross_ac',
-        'focus-cross-ac-amt': 'cross_ac_amt'
-    };
-
-    Object.keys(focusMap).forEach(evtName => {
-        window.addEventListener(evtName, function () {
-            const el = document.getElementById(focusMap[evtName]);
-            if (el) setTimeout(() => el.focus(), 0);
-        });
-    });
-
-    // ---- Keyboard shortcuts (global) ----
-    document.addEventListener('keydown', function (e) {
-        const tag = (document.activeElement && document.activeElement.tagName) || '';
-        const editable = document.activeElement && (document.activeElement.isContentEditable ||
-            ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag));
-        if (editable && !(e.ctrlKey || e.metaKey)) return;
-
-        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
-            e.preventDefault();
-            document.getElementById('cross_abc')?.focus();
-            return;
-        }
-
-        if (e.ctrlKey && ['1', '2', '3'].includes(e.key)) {
-            e.preventDefault();
-            const map = { '1': 'cross_a', '2': 'cross_b', '3': 'cross_c' };
-            document.getElementById(map[e.key])?.focus();
-            return;
-        }
-    }, { passive: true });
-})();
-</script>
-@endscript --}}
 
 @script
 <script>
+
+let _activeIntervals = [];
+function _setManagedInterval(fn, ms) {
+    let id = setInterval(fn, ms);
+    _activeIntervals.push({id, fn, ms});
+    return id;
+}
+function _clearManagedIntervals() {
+    _activeIntervals.forEach(obj => clearInterval(obj.id));
+    _activeIntervals = [];
+}
+function _restartManagedIntervals() {
+    _activeIntervals.forEach(obj => clearInterval(obj.id));
+    const existing = [..._activeIntervals];
+    _activeIntervals = [];
+    existing.forEach(obj => {
+        let id = setInterval(obj.fn, obj.ms);
+        _activeIntervals.push({id, fn: obj.fn, ms: obj.ms});
+    });
+}
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        _clearManagedIntervals();
+    } else {
+        _restartManagedIntervals();
+    }
+});
+
+
 (function () {
     // ---- Input sanitizers (kept using jQuery for compatibility) ----
     $(document).on('input', '.cross_number', function () {

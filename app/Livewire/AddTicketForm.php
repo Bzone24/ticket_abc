@@ -45,6 +45,9 @@ class AddTicketForm extends Component
     public $end_time;
     public int $duration = 0;
 
+    // Authoritative end time in milliseconds since epoch (Asia/Kolkata)
+    public int $endAtMs = 0;
+
     public $active_draw;
     public $user_running_ticket;
 
@@ -65,6 +68,10 @@ class AddTicketForm extends Component
 
     public array $stored_options = [];
 
+    public array $drawSchedule = [];
+public string $serverNowIso = '';
+
+
     /** -------------------------
      *  Game selection (N1/N2)
      *  -------------------------
@@ -74,7 +81,7 @@ class AddTicketForm extends Component
 
     /* -------------------------
      *  Utility helpers
-     * -------------------------
+     * ------------------------- 
      */
     private function refreshSelectedTimes(): void
     {
@@ -145,7 +152,7 @@ class AddTicketForm extends Component
 
     /* -------------------------
      *  Lifecycle
-     * -------------------------
+     * ------------------------- 
      */
     public function mount(Request $request, $ticket = null)
     {
@@ -175,6 +182,7 @@ class AddTicketForm extends Component
         $this->loadDraws();
         $this->loadTickets();
         $this->loadLatestDraws();
+        $this->refreshDraw();
 
         // Ensure slip is initialized
         $this->refreshSelectedTimes();
@@ -200,7 +208,7 @@ class AddTicketForm extends Component
 
     /* -------------------------
      *  Events / Listeners
-     * -------------------------
+     * ------------------------- 
      */
     #[On('countdown-tick')]
     public function handleTime($timeLeft)
@@ -212,8 +220,7 @@ class AddTicketForm extends Component
         }
     }
 
-  #[On('refresh-draw')]
-public function refreshDraw()
+   public function refreshDraw()
 {
     // 1) Reload the draw list
     $this->loadDraws();
@@ -230,26 +237,81 @@ public function refreshDraw()
         $this->setStoreOptions($this->selected_draw);
     }
 
-    // 5) Timer
+    // 5) Timer — compute active draw, duration and authoritative endAtMs
     $this->active_draw = $this->draw_list[0] ?? null;
     if (!$this->active_draw) {
         $this->duration = 0;
+        $this->endAtMs = 0;
     } else {
         $now    = \Carbon\Carbon::now('Asia/Kolkata');
         $endStr = (string) ($this->active_draw->end_time ?? '');
         try {
             $end = $this->parseTimeToCarbon($endStr)
                 ->setDate($now->year, $now->month, $now->day)
-                ->setSecond(59);
+                ->setSecond(0);
             $this->duration = max(0, $now->diffInSeconds($end));
+            // authoritative end time in milliseconds for client-side Date.now() logic
+            $this->endAtMs = $end->getTimestamp() * 1000;
         } catch (\Throwable $e) {
             $this->duration = 0;
+            $this->endAtMs = 0;
         }
     }
 
     // 6) Refresh slip ONCE (source of truth)
     $this->refreshSelectedTimes();
     $this->refreshSelectedGameLabels();
+
+    // 7) Build drawSchedule (full day schedule with ISO datetimes) and serverNowIso
+    try {
+        $now = \Carbon\Carbon::now('Asia/Kolkata');
+
+        $this->drawSchedule = collect($this->draw_list ?? [])->map(function ($d) use ($now) {
+            try {
+                $start = $this->parseTimeToCarbon((string)$d->start_time)
+                    ->setDate($now->year, $now->month, $now->day)
+                    ->setSecond(0);
+
+                $end = $this->parseTimeToCarbon((string)$d->end_time)
+                    ->setDate($now->year, $now->month, $now->day)
+                    ->setSecond(59);
+
+                return [
+                    'id'        => $d->id,
+                    'start_iso' => $start->toIso8601String(),
+                    'end_iso'   => $end->toIso8601String(),
+                    'label'     => $start->format('h:i a') . ' → ' . $end->format('h:i a'),
+                ];
+            } catch (\Throwable $ex) {
+                return null;
+            }
+        })->filter()->values()->toArray();
+
+        $this->serverNowIso = \Carbon\Carbon::now('Asia/Kolkata')->toIso8601String();
+    } catch (\Throwable $e) {
+        // safe fallback
+        $this->drawSchedule = [];
+        $this->serverNowIso = \Carbon\Carbon::now('Asia/Kolkata')->toIso8601String();
+    }
+}
+
+#[On('countdownReached')]
+public function handleCountdownReached($payload = null)
+{
+    // Client reported countdown reached; re-validate server-side and act if necessary.
+    // Keep this minimal and authoritative: refresh draw state and resend authoritative endAt if needed.
+    $this->refreshDraw();
+
+    if ($this->duration > 0) {
+        // Client says reached but server still has time -> send authoritative timestamp
+        $this->dispatch('durationSynced', ['endAt' => $this->endAtMs]);
+        return;
+    }
+
+    // If server duration is 0 (draw ended), let client know we refreshed schedule.
+    // emit a server->browser event to inform clients they should re-sync their schedule
+    // Note: This will trigger a browser event with name 'drawsRefreshed' (kebab-cased on DOM).
+    $this->dispatch('drawsRefreshed', ['schedule' => $this->drawSchedule ?? [], 'serverNow' => $this->serverNowIso ?? '']);
 }
 
 

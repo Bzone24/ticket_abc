@@ -56,18 +56,17 @@ trait TicketFormPagination
     public int $total_cross_data = 0;
 
     private function sanitizeSelectedDrawFromList(): void
-{
-    $now = now('Asia/Kolkata')->format('H:i:s');
+    {
+        $now = now('Asia/Kolkata')->format('H:i:s');
 
-    // keep only those still visible *and* not ended
-    $validIds = collect($this->draw_list ?? [])
-        ->filter(fn($d) => ($d->end_time >= $now))
-        ->pluck('id')
-        ->all();
+        // keep only those still visible *and* not ended
+        $validIds = collect($this->draw_list ?? [])
+            ->filter(fn($d) => ($d->end_time >= $now))
+            ->pluck('id')
+            ->all();
 
-    $this->selected_draw = array_values(array_intersect($this->selected_draw ?? [], $validIds));
-}
-
+        $this->selected_draw = array_values(array_intersect($this->selected_draw ?? [], $validIds));
+    }
 
     public function updatedDrawPage()
     {
@@ -129,8 +128,6 @@ trait TicketFormPagination
         // ✅ keep selection synced with what’s visible & open
         $this->sanitizeSelectedDrawFromList();
     }
-
-
 
     public function loadLatestDraws()
     {
@@ -277,26 +274,29 @@ trait TicketFormPagination
 
         }
     }
+
     #[\Livewire\Attributes\On('sync-duration')]
-public function syncDuration()
-{
-    if ($this->active_draw) {
-        $now = now('Asia/Kolkata');
-        $end = \Carbon\Carbon::createFromFormat('H:i', $this->active_draw->end_time, 'Asia/Kolkata')
-            ->setDate($now->year, $now->month, $now->day)
-            ->setSecond(0);
+    public function syncDuration()
+    {
+        if ($this->active_draw) {
+            $now = now('Asia/Kolkata');
+            $end = \Carbon\Carbon::createFromFormat('H:i', $this->active_draw->end_time, 'Asia/Kolkata')
+                ->setDate($now->year, $now->month, $now->day)
+                ->setSecond(0);
 
-        if ($now->greaterThanOrEqualTo($end)) {
-            // draw expired → reload next one
-            $this->dispatch('refresh-draw');
-            return;
+            if ($now->greaterThanOrEqualTo($end)) {
+                // draw expired → reload next one
+                $this->dispatch('refresh-draw');
+                return;
+            }
+
+            $this->duration = max(0, $now->diffInSeconds($end));
+            // authoritative end time in milliseconds for client-side Date.now() logic
+            $this->endAtMs = $end->getTimestamp() * 1000;
+
+            // Emit authoritative timestamp to client that requested sync
+            $this->dispatch('durationSynced', ['endAt' => $this->endAtMs]);
+
         }
-
-        $this->duration = max(0, $now->diffInSeconds($end));
     }
-}
-
-
-
-
 }

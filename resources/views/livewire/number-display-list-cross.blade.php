@@ -3,10 +3,10 @@
     <!-- Timer Header -->
     @include('livewire.ticket-data-form')
 
-<div class="card-header text-black">
-  <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom w-100">
+    <div class="card-header text-black">
+        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom w-100">
 
-    {{-- @php
+            {{-- @php
       // TIMES: prefer $selected_times; fallback to active_draw->formatEndTime()
       $times = !empty($selected_times)
           ? $selected_times
@@ -23,53 +23,53 @@
                 ->all();
     @endphp --}}
 
-     @php
-    use Illuminate\Support\Str;
+            @php
+                use Illuminate\Support\Str;
 
-    // Decide format: if original has seconds -> show seconds, else no seconds.
-    $formatFromString = function ($s) {
-        return (is_string($s) && substr_count($s, ':') >= 2) ? 'g:i:s A' : 'g:i A';
-    };
+                // Decide format: if original has seconds -> show seconds, else no seconds.
+                $formatFromString = function ($s) {
+                    return is_string($s) && substr_count($s, ':') >= 2 ? 'g:i:s A' : 'g:i A';
+                };
 
-    $addOneMinute = function ($t) use ($formatFromString) {
-        try {
-            $dt = \Illuminate\Support\Carbon::parse($t)->addMinute();
-            $fmt = $formatFromString((string)$t);
-            return $dt->format($fmt); // 12-hour with AM/PM, e.g. 3:00 PM
-        } catch (\Throwable $e) {
-            // parsing failed — return original value as safe fallback
-            return $t;
-        }
-    };
+                $addOneMinute = function ($t) use ($formatFromString) {
+                    try {
+                        $dt = \Illuminate\Support\Carbon::parse($t)->addMinute();
+                        $fmt = $formatFromString((string) $t);
+                        return $dt->format($fmt); // 12-hour with AM/PM, e.g. 3:00 PM
+                    } catch (\Throwable $e) {
+                        // parsing failed — return original value as safe fallback
+                        return $t;
+                    }
+                };
 
-    if (!empty($selected_times)) {
-        $selected_times_arr = is_array($selected_times) ? $selected_times : [$selected_times];
-        $times = array_map($addOneMinute, $selected_times_arr);
-    } elseif (isset($active_draw)) {
-        $raw = $active_draw->formatEndTime();
-        $times = [ $addOneMinute($raw) ];
-    } else {
-        $times = [];
-    }
+                if (!empty($selected_times)) {
+                    $selected_times_arr = is_array($selected_times) ? $selected_times : [$selected_times];
+                    $times = array_map($addOneMinute, $selected_times_arr);
+                } elseif (isset($active_draw)) {
+                    $raw = $active_draw->formatEndTime();
+                    $times = [$addOneMinute($raw)];
+                } else {
+                    $times = [];
+                }
 
-    // GAMES: prefer $selected_game_labels; fallback from games list
-    $labels = !empty($selected_game_labels)
-        ? $selected_game_labels
-        : collect($games ?? [])
-              ->whereIn('id', $selected_games ?? [])
-              ->map(fn($g) => strtoupper($g->code ?? $g->short_code ?? $g->name ?? ''))
-              ->values()
-              ->all();
-@endphp
+                // GAMES: prefer $selected_game_labels; fallback from games list
+                $labels = !empty($selected_game_labels)
+                    ? $selected_game_labels
+                    : collect($games ?? [])
+                        ->whereIn('id', $selected_games ?? [])
+                        ->map(fn($g) => strtoupper($g->code ?? ($g->short_code ?? ($g->name ?? ''))))
+                        ->values()
+                        ->all();
+            @endphp
 
-    <h6 class="mb-0 w-100 text-center">
-      <strong>Game:</strong> {{ !empty($labels) ? implode(', ', $labels) : '—' }}
-      &nbsp; | &nbsp;
-      <strong>Draw:</strong> {{ !empty($times) ? implode(', ', $times) : '—' }}
-    </h6>
+            <h6 class="mb-0 w-100 text-center">
+                <strong>Game:</strong> {{ !empty($labels) ? implode(', ', $labels) : '—' }}
+                &nbsp; | &nbsp;
+                <strong>Draw:</strong> {{ !empty($times) ? implode(', ', $times) : '—' }}
+            </h6>
 
-  </div>
-</div>
+        </div>
+    </div>
 
 
 
@@ -84,7 +84,7 @@
                 <table class="table table-bordered table-striped table-hover mb-0 text-center fw-bold">
                     <thead class="table-light position-sticky top-0" style="z-index: 1;">
                         <tr>
-                            <th>#</th>
+                            {{-- <th>#</th> --}}
                             <th>Option</th>
                             <th>Number</th>
                             <th>Amt</th>
@@ -105,8 +105,7 @@
                                 <td>{{ $d['combination'] * $d['amt'] }}</td>
                                 <td>
                                     <button class="btn btn-sm btn-danger"
-                                            wire:click="deleteCrossAbc({{ $index }})"
-                                            title="Delete">
+                                        wire:click="deleteCrossAbc({{ $index }})" title="Delete">
                                         🗑
                                     </button>
                                 </td>
@@ -146,32 +145,29 @@
 
                     <tfoot class="table-light position-sticky bottom-0" style="z-index: 2; background: #fff;">
                         <tr>
-                            <td colspan="5" class="fw-bold text-danger">
-                                <div class="d-flex flex-column ">
-                                    <span> {{ $totalAmt }} </span>
-                                    <span> Final Total (× {{ $drawCount }} draws × {{ $gameCount }} games):
+                            <td colspan="1" class="text-center">
+                                {{-- <div class="d-flex flex-column gap-2"> --}}
+                                <button class="btn btn-sm btn-danger" wire:click="clearAllCrossAbcIntoCache">
+                                    Clear All
+                                </button>
+                            </td>
+                            <td colspan="6" class="fw-bold text-danger ">
+                                <div class="d-flex justify-content-between align-items-center">
+
+                                    <span> Total {{ $totalAmt }}
+                                        FT (× {{ $drawCount }} draws ):
                                         {{ $finalTotal }} </span>
                                     <span>
                                         @error('draw_detail_cross')
                                             <div class="text-red-500">{{ $message }}</div>
-                                            {{-- <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                                {{ $message }}
-                                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                            </div> --}}
                                         @enderror
-                                    <span>
-                                </div>
+                                        <span>
+                                            <button class="btn btn-sm btn-primary" wire:click="submitTicket">
+                                                Submit Ticket
+                                            </button>
+
                             </td>
-                            <td colspan="2" class="text-end">
-                                <div class="d-flex flex-column gap-2">
-                                    <button class="btn btn-sm btn-danger" wire:click="clearAllCrossAbcIntoCache">
-                                        Clear All
-                                    </button>
-                                    <button class="btn btn-sm btn-primary" wire:click="submitTicket">
-                                        Submit Ticket
-                                    </button>
-                                </div>
-                            </td>
+
                         </tr>
                     </tfoot>
 
@@ -179,36 +175,75 @@
             </div>
         </div>
     </div>
-     
+
 </div>
 
 
 {{-- Print & Shortcut Script --}}
 @script
-<script>
-    document.addEventListener('keydown', function (e) {
-        // Detect Ctrl + F12
-        if (e.ctrlKey && e.key === "F12") {
-            e.preventDefault();
-            @this.call('submitTicket');
+    <script>
+        let _activeIntervals = [];
+
+        function _setManagedInterval(fn, ms) {
+            let id = setInterval(fn, ms);
+            _activeIntervals.push({
+                id,
+                fn,
+                ms
+            });
+            return id;
         }
-    });
 
-    // After save -> print cross ticket
- Livewire.on('ticketSubmitted', () => {
-    // skip partial printing if combined printer exists
-    if (window.COMBINED_PRINTER) return;
+        function _clearManagedIntervals() {
+            _activeIntervals.forEach(obj => clearInterval(obj.id));
+            _activeIntervals = [];
+        }
 
-    // keep old fallback for debugging / dev if no combined printer present:
-    printSimpleTicket?.();
-    printCrossTicket?.();
-});
+        function _restartManagedIntervals() {
+            _activeIntervals.forEach(obj => clearInterval(obj.id));
+            const existing = [..._activeIntervals];
+            _activeIntervals = [];
+            existing.forEach(obj => {
+                let id = setInterval(obj.fn, obj.ms);
+                _activeIntervals.push({
+                    id,
+                    fn: obj.fn,
+                    ms: obj.ms
+                });
+            });
+        }
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                _clearManagedIntervals();
+            } else {
+                _restartManagedIntervals();
+            }
+        });
 
 
-    function printCrossTicket() {
-    let content = document.getElementById("printCrossArea")?.innerHTML ?? '';
-    let printWindow = window.open("", "", "width=300,height=600");
-    printWindow.document.write(`
+        document.addEventListener('keydown', function(e) {
+            // Detect Ctrl + F12
+            if (e.ctrlKey && e.key === "F12") {
+                e.preventDefault();
+                @this.call('submitTicket');
+            }
+        });
+
+        // After save -> print cross ticket
+        Livewire.on('ticketSubmitted', () => {
+            // skip partial printing if combined printer exists
+            if (window.COMBINED_PRINTER) return;
+
+            // keep old fallback for debugging / dev if no combined printer present:
+            printSimpleTicket?.();
+            printCrossTicket?.();
+        });
+
+
+        function printCrossTicket() {
+            let content = document.getElementById("printCrossArea")?.innerHTML ?? '';
+            let printWindow = window.open("", "", "width=300,height=600");
+            printWindow.document.write(`
         <html>
             <head>
                 <title>Print Cross Ticket</title>
@@ -230,12 +265,10 @@
             </body>
         </html>
     `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
-}
-
-</script>
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+        }
+    </script>
 @endscript
-

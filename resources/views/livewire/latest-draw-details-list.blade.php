@@ -7,7 +7,7 @@
     <!-- Body -->
     <div class="card-body p-3">
         <div class="table-responsive latest-draw-list bg-secondary bg-opacity-10 rounded p-2"
-             style="max-height: 250px; overflow-y: auto;">
+             style="max-height: 150px; overflow-y: auto;">
             <table class="table table-dark table-bordered table-striped table-hover align-middle mb-0">
                 <thead class="bg-secondary text-white position-sticky top-0" style="z-index: 1;">
                     <tr>
