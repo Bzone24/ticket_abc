@@ -20,6 +20,7 @@
               <iconify-icon icon="solar:menu-dots-linear" class="nav-small-cap-icon fs-4"></iconify-icon>
               <span class="hide-menu">Home</span>
             </li> --}}
+                @hasanyrole('admin|shopkeeper')
                 <li class="sidebar-item">
                     <a @class([
                         'sidebar-link',
@@ -29,22 +30,32 @@
                         <span class="hide-menu">Dashboard</span>
                     </a>
                 </li>
-
+                @endhasanyrole
+                @hasanyrole('admin|shopkeeper')
                 <li class="sidebar-item">
                     <a @class([
                         'sidebar-link',
                         'active' => request()->is(['admin/shopkeepers/*']),
                     ]) href="{{ route('admin.shopkeepers') }}" aria-expanded="false">
                         <i class="ti ti-users"></i>
-                        <span class="hide-menu">Shopkeepers</span>
+                        <span class="hide-menu">
+                              @role('admin')
+                                  Shopkeeper
+                              @elserole('shopkeeper')
+                                  User
+                              @endrole
+                        </span>
                     </a>
                 </li>
+                @endhasanyrole
+                @hasanyrole('admin')
                 <li class="sidebar-item">
                     <a @class(['sidebar-link', 'active' => request()->is(['admin/draw/*'])]) href="{{ route('admin.draw') }}" aria-expanded="false">
                         <i class="ti ti-plus"></i>
                         <span class="hide-menu">Draw</span>
                     </a>
                 </li>
+                @endhasanyrole
                 <!-- ---------------------------------- -->
                 <!-- Dashboard -->
                 <!-- ---------------------------------- -->

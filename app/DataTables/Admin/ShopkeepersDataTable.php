@@ -60,7 +60,23 @@ class ShopkeepersDataTable extends DataTable
      */
     public function query(User $model): QueryBuilder
     {
-        return $model->newQuery();
+        $user = auth()->user();
+
+        if ($user->hasRole('admin')) {
+            return $model->newQuery()
+                ->role('shopkeeper')
+                ->with('children')
+                ->select('users.*');
+        }
+
+         if ($user->hasRole('shopkeeper')) {
+            return $model->newQuery()
+                ->role('user')
+                ->where('created_by', $user->id)
+                ->select('users.*');
+        }
+
+        return $model->newQuery()->whereRaw('1=0');
     }
 
     /**

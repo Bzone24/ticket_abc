@@ -17,7 +17,7 @@ Route::controller(AuthController::class)->group(function () {
 });
 
 // Authentication Routes
-Route::middleware('auth')->group(function () {
+Route::middleware('auth:web')->group(function () {
 
     Route::controller(DashboardController::class)->prefix('dashboard')->group(function () {
         Route::get('/', 'index')->name('dashboard');

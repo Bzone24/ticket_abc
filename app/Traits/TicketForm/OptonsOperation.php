@@ -486,245 +486,250 @@ trait OptonsOperation
                 }
             }
             ksort($digitMatrix);
-// ---------- PRE-PERSIST VALIDATION ----------
-$maxTqFromSettings = Schema::hasTable('settings') ? DB::table('settings')->where('key', 'maximum_tq')->value('value') : null;
-$maxCrossFromSettings = Schema::hasTable('settings') ? DB::table('settings')->where('key', 'maximum_cross_amount')->value('value') : null;
+            // ---------- PRE-PERSIST VALIDATION ----------
+            $maxTqFromSettings = Schema::hasTable('settings') ? DB::table('settings')->where('key', 'maximum_tq')->value('value') : null;
+            $maxCrossFromSettings = Schema::hasTable('settings') ? DB::table('settings')->where('key', 'maximum_cross_amount')->value('value') : null;
 
-$maximum_tq = (int) ($maxTqFromSettings ?? auth()->user()->maximum_tq ?? 50);
-$maximum_cross_amt = (int) ($maxCrossFromSettings ?? auth()->user()->maximum_cross_amount ?? 50);
+            $maximum_tq = (int) ($maxTqFromSettings ?? auth()->user()->maximum_tq ?? 50);
+            $maximum_cross_amt = (int) ($maxCrossFromSettings ?? auth()->user()->maximum_cross_amount ?? 50);
 
-$maximum_source = [
-    'maximum_tq' => $maxTqFromSettings ? 'settings' : 'user',
-    'maximum_cross_amount' => $maxCrossFromSettings ? 'settings' : 'user',
-];
+            $maximum_source = [
+                'maximum_tq' => $maxTqFromSettings ? 'settings' : 'user',
+                'maximum_cross_amount' => $maxCrossFromSettings ? 'settings' : 'user',
+            ];
 
-// build incomingSimple and incomingCross from storedOptions
-$incomingSimple = [];
-$incomingCross = [];
+            // build incomingSimple and incomingCross from storedOptions
+            $incomingSimple = [];
+            $incomingCross = [];
 
-foreach ($storedOptions as $opt) {
-    $rawNum = isset($opt['number']) ? trim((string)$opt['number']) : '';
-    $optionRaw = isset($opt['option']) ? (string)$opt['option'] : '';
+            foreach ($storedOptions as $opt) {
+                $rawNum = isset($opt['number']) ? trim((string)$opt['number']) : '';
+                $optionRaw = isset($opt['option']) ? (string)$opt['option'] : '';
 
-    // option letters (A,B,C) if present
-    $optionLetters = [];
-    if ($optionRaw !== '') {
-        preg_match_all('/[ABC]/i', $optionRaw, $m);
-        if (!empty($m[0])) {
-            $optionLetters = array_map('strtoupper', $m[0]);
-        }
-    }
-
-    $hasExplicitA = isset($opt['a_qty']) && $opt['a_qty'] !== null && $opt['a_qty'] !== '';
-    $hasExplicitB = isset($opt['b_qty']) && $opt['b_qty'] !== null && $opt['b_qty'] !== '';
-    $hasExplicitC = isset($opt['c_qty']) && $opt['c_qty'] !== null && $opt['c_qty'] !== '';
-
-    if ($rawNum !== '') {
-        if (is_numeric($rawNum)) {
-            $digits = str_split($rawNum);
-            foreach ($digits as $digitChar) {
-                if (!ctype_digit($digitChar)) continue;
-                $digit = (string)(int)$digitChar;
-                if (!empty($opt['qty']) && !empty($optionLetters)) {
-                    foreach ($optionLetters as $opChar) {
-                        $key = strtolower($opChar) . $digit;
-                        $incomingSimple[$key] = ($incomingSimple[$key] ?? 0) + (int)$opt['qty'];
+                // option letters (A,B,C) if present
+                $optionLetters = [];
+                if ($optionRaw !== '') {
+                    preg_match_all('/[ABC]/i', $optionRaw, $m);
+                    if (!empty($m[0])) {
+                        $optionLetters = array_map('strtoupper', $m[0]);
                     }
                 }
-                if ($hasExplicitA) $incomingSimple['a'.$digit] = ($incomingSimple['a'.$digit] ?? 0) + (int)$opt['a_qty'];
-                if ($hasExplicitB) $incomingSimple['b'.$digit] = ($incomingSimple['b'.$digit] ?? 0) + (int)$opt['b_qty'];
-                if ($hasExplicitC) $incomingSimple['c'.$digit] = ($incomingSimple['c'.$digit] ?? 0) + (int)$opt['c_qty'];
-            }
-        } else {
-            preg_match_all('/\d/', $rawNum, $digitsMatches);
-            if (!empty($digitsMatches[0])) {
-                foreach ($digitsMatches[0] as $digitChar) {
-                    $digit = (string)(int)$digitChar;
-                    if (!empty($opt['qty']) && !empty($optionLetters)) {
-                        foreach ($optionLetters as $opChar) {
-                            $key = strtolower($opChar) . $digit;
-                            $incomingSimple[$key] = ($incomingSimple[$key] ?? 0) + (int)$opt['qty'];
+
+                $hasExplicitA = isset($opt['a_qty']) && $opt['a_qty'] !== null && $opt['a_qty'] !== '';
+                $hasExplicitB = isset($opt['b_qty']) && $opt['b_qty'] !== null && $opt['b_qty'] !== '';
+                $hasExplicitC = isset($opt['c_qty']) && $opt['c_qty'] !== null && $opt['c_qty'] !== '';
+
+                if ($rawNum !== '') {
+                    if (is_numeric($rawNum)) {
+                        $digits = str_split($rawNum);
+                        foreach ($digits as $digitChar) {
+                            if (!ctype_digit($digitChar)) continue;
+                            $digit = (string)(int)$digitChar;
+                            if (!empty($opt['qty']) && !empty($optionLetters)) {
+                                foreach ($optionLetters as $opChar) {
+                                    $key = strtolower($opChar) . $digit;
+                                    $incomingSimple[$key] = ($incomingSimple[$key] ?? 0) + (int)$opt['qty'];
+                                }
+                            }
+                            if ($hasExplicitA) $incomingSimple['a' . $digit] = ($incomingSimple['a' . $digit] ?? 0) + (int)$opt['a_qty'];
+                            if ($hasExplicitB) $incomingSimple['b' . $digit] = ($incomingSimple['b' . $digit] ?? 0) + (int)$opt['b_qty'];
+                            if ($hasExplicitC) $incomingSimple['c' . $digit] = ($incomingSimple['c' . $digit] ?? 0) + (int)$opt['c_qty'];
+                        }
+                    } else {
+                        preg_match_all('/\d/', $rawNum, $digitsMatches);
+                        if (!empty($digitsMatches[0])) {
+                            foreach ($digitsMatches[0] as $digitChar) {
+                                $digit = (string)(int)$digitChar;
+                                if (!empty($opt['qty']) && !empty($optionLetters)) {
+                                    foreach ($optionLetters as $opChar) {
+                                        $key = strtolower($opChar) . $digit;
+                                        $incomingSimple[$key] = ($incomingSimple[$key] ?? 0) + (int)$opt['qty'];
+                                    }
+                                }
+                                if ($hasExplicitA) $incomingSimple['a' . $digit] = ($incomingSimple['a' . $digit] ?? 0) + (int)$opt['a_qty'];
+                                if ($hasExplicitB) $incomingSimple['b' . $digit] = ($incomingSimple['b' . $digit] ?? 0) + (int)$opt['b_qty'];
+                                if ($hasExplicitC) $incomingSimple['c' . $digit] = ($incomingSimple['c' . $digit] ?? 0) + (int)$opt['c_qty'];
+                            }
                         }
                     }
-                    if ($hasExplicitA) $incomingSimple['a'.$digit] = ($incomingSimple['a'.$digit] ?? 0) + (int)$opt['a_qty'];
-                    if ($hasExplicitB) $incomingSimple['b'.$digit] = ($incomingSimple['b'.$digit] ?? 0) + (int)$opt['b_qty'];
-                    if ($hasExplicitC) $incomingSimple['c'.$digit] = ($incomingSimple['c'.$digit] ?? 0) + (int)$opt['c_qty'];
                 }
-            }
-        }
-    }
 
-    // cross entries inside options
-    if (!empty($opt['cross']) && is_array($opt['cross'])) {
-        foreach ($opt['cross'] as $cr) {
-            $type = strtolower($cr['type'] ?? ($cr['option'] ?? ''));
-            $num2 = str_pad((int)($cr['number'] ?? ($cr['num'] ?? 0)), 2, '0', STR_PAD_LEFT);
-            $amt = $cr['amount'] ?? ($cr['amt'] ?? null);
-            if ($type === '' || !is_numeric($amt)) continue;
-            $key = strtolower(substr($type, 0, 2)) . $num2;
-            $incomingCross[$key] = ($incomingCross[$key] ?? 0) + (int)$amt;
-        }
-    }
-}
-
-// include separately cached cross entries
-if (!isset($cachedCross)) {
-    $cachedCross = $this->getCrossOptions();
-}
-
-if (isset($cachedCross) && $cachedCross instanceof \Illuminate\Support\Collection) {
-    foreach ($cachedCross->values()->all() as $cr) {
-        $amt = $cr['amount'] ?? ($cr['amt'] ?? null);
-        $numRaw = $cr['number'] ?? ($cr['num'] ?? null);
-        $typeRaw = $cr['type'] ?? ($cr['abc'] ?? $cr['option'] ?? null);
-
-        if ($numRaw !== null && $typeRaw !== null && $amt !== null && is_numeric($numRaw) && is_numeric($amt)) {
-            $num2 = str_pad((int)$numRaw, 2, '0', STR_PAD_LEFT);
-            $typeKey = strtolower(substr((string)$typeRaw, 0, 2));
-            $incomingCross[$typeKey.$num2] = ($incomingCross[$typeKey.$num2] ?? 0) + (int)$amt;
-            continue;
-        }
-
-        $amtCol = $cr['amt'] ?? ($cr['amount'] ?? null);
-        if ($amtCol !== null && is_numeric($amtCol)) {
-            foreach (['ab','ac','bc'] as $col) {
-                if (empty($cr[$col])) continue;
-                $raw = $cr[$col];
-                $numbers = [];
-                if (is_array($raw)) {
-                    $numbers = $raw;
-                } elseif (is_numeric($raw)) {
-                    $numbers = [(int)$raw];
-                } elseif (is_string($raw)) {
-                    $trimmed = trim($raw);
-                    if (strpos($trimmed, '[') === 0) {
-                        $decoded = json_decode($trimmed, true);
-                        if (is_array($decoded)) $numbers = $decoded;
-                    } elseif (strpos($trimmed, ',') !== false) {
-                        $numbers = array_map('trim', explode(',', $trimmed));
-                    } elseif ($trimmed !== '') {
-                        $numbers = [$trimmed];
+                // cross entries inside options
+                if (!empty($opt['cross']) && is_array($opt['cross'])) {
+                    foreach ($opt['cross'] as $cr) {
+                        $type = strtolower($cr['type'] ?? ($cr['option'] ?? ''));
+                        $num2 = str_pad((int)($cr['number'] ?? ($cr['num'] ?? 0)), 2, '0', STR_PAD_LEFT);
+                        $amt = $cr['amount'] ?? ($cr['amt'] ?? null);
+                        if ($type === '' || !is_numeric($amt)) continue;
+                        $key = strtolower(substr($type, 0, 2)) . $num2;
+                        $incomingCross[$key] = ($incomingCross[$key] ?? 0) + (int)$amt;
                     }
                 }
-                foreach ($numbers as $n) {
-                    if (!is_numeric($n)) continue;
-                    $num2 = str_pad((int)$n, 2, '0', STR_PAD_LEFT);
-                    $incomingCross[$col.$num2] = ($incomingCross[$col.$num2] ?? 0) + (int)$amtCol;
+            }
+
+            // include separately cached cross entries
+            if (!isset($cachedCross)) {
+                $cachedCross = $this->getCrossOptions();
+            }
+
+            if (isset($cachedCross) && $cachedCross instanceof \Illuminate\Support\Collection) {
+                foreach ($cachedCross->values()->all() as $cr) {
+                    $amt = $cr['amount'] ?? ($cr['amt'] ?? null);
+                    $numRaw = $cr['number'] ?? ($cr['num'] ?? null);
+                    $typeRaw = $cr['type'] ?? ($cr['abc'] ?? $cr['option'] ?? null);
+
+                    if ($numRaw !== null && $typeRaw !== null && $amt !== null && is_numeric($numRaw) && is_numeric($amt)) {
+                        $num2 = str_pad((int)$numRaw, 2, '0', STR_PAD_LEFT);
+                        $typeKey = strtolower(substr((string)$typeRaw, 0, 2));
+                        $incomingCross[$typeKey . $num2] = ($incomingCross[$typeKey . $num2] ?? 0) + (int)$amt;
+                        continue;
+                    }
+
+                    $amtCol = $cr['amt'] ?? ($cr['amount'] ?? null);
+                    if ($amtCol !== null && is_numeric($amtCol)) {
+                        foreach (['ab', 'ac', 'bc'] as $col) {
+                            if (empty($cr[$col])) continue;
+                            $raw = $cr[$col];
+                            $numbers = [];
+                            if (is_array($raw)) {
+                                $numbers = $raw;
+                            } elseif (is_numeric($raw)) {
+                                $numbers = [(int)$raw];
+                            } elseif (is_string($raw)) {
+                                $trimmed = trim($raw);
+                                if (strpos($trimmed, '[') === 0) {
+                                    $decoded = json_decode($trimmed, true);
+                                    if (is_array($decoded)) $numbers = $decoded;
+                                } elseif (strpos($trimmed, ',') !== false) {
+                                    $numbers = array_map('trim', explode(',', $trimmed));
+                                } elseif ($trimmed !== '') {
+                                    $numbers = [$trimmed];
+                                }
+                            }
+                            foreach ($numbers as $n) {
+                                if (!is_numeric($n)) continue;
+                                $num2 = str_pad((int)$n, 2, '0', STR_PAD_LEFT);
+                                $incomingCross[$col . $num2] = ($incomingCross[$col . $num2] ?? 0) + (int)$amtCol;
+                            }
+                        }
+                        continue;
+                    }
+
+                    foreach (['ab', 'ac', 'bc'] as $col) {
+                        if (isset($cr[$col]) && is_numeric($cr[$col]) && isset($cr['number']) && is_numeric($cr['number'])) {
+                            $num2 = str_pad((int)$cr['number'], 2, '0', STR_PAD_LEFT);
+                            $incomingCross[$col . $num2] = ($incomingCross[$col . $num2] ?? 0) + (int)$cr[$col];
+                        }
+                    }
                 }
             }
-            continue;
-        }
 
-        foreach (['ab','ac','bc'] as $col) {
-            if (isset($cr[$col]) && is_numeric($cr[$col]) && isset($cr['number']) && is_numeric($cr['number'])) {
-                $num2 = str_pad((int)$cr['number'], 2, '0', STR_PAD_LEFT);
-                $incomingCross[$col.$num2] = ($incomingCross[$col.$num2] ?? 0) + (int)$cr[$col];
+            // expand multi-digit cross keys (ab123 -> ab12, ab13, ab23)
+            $expandedIncomingCross = [];
+            foreach ($incomingCross as $key => $amt) {
+                $amt = (int)$amt;
+                if (strlen($key) < 3) {
+                    $expandedIncomingCross[$key] = ($expandedIncomingCross[$key] ?? 0) + $amt;
+                    continue;
+                }
+                $type = substr($key, 0, 2);
+                $numPart = substr($key, 2);
+                if (preg_match('/^\d{1,2}$/', $numPart)) {
+                    $pair = strlen($numPart) === 1 ? str_pad($numPart, 2, '0', STR_PAD_LEFT) : $numPart;
+                    $nk = strtolower($type) . $pair;
+                    $expandedIncomingCross[$nk] = ($expandedIncomingCross[$nk] ?? 0) + $amt;
+                    continue;
+                }
+                if (preg_match('/^\d+$/', $numPart)) {
+                    $digits = str_split($numPart);
+                    $n = count($digits);
+                    for ($i = 0; $i < $n - 1; $i++) {
+                        for ($j = $i + 1; $j < $n; $j++) {
+                            $d1 = (string)(int)$digits[$i];
+                            $d2 = (string)(int)$digits[$j];
+                            $pairRaw = $d1 . $d2;
+                            $pair = str_pad($pairRaw, 2, '0', STR_PAD_LEFT);
+                            $nk = strtolower($type) . $pair;
+                            $expandedIncomingCross[$nk] = ($expandedIncomingCross[$nk] ?? 0) + $amt;
+                        }
+                    }
+                    continue;
+                }
+                $expandedIncomingCross[$key] = ($expandedIncomingCross[$key] ?? 0) + $amt;
             }
-        }
-    }
-}
+            $incomingCross = $expandedIncomingCross;
 
-// expand multi-digit cross keys (ab123 -> ab12, ab13, ab23)
-$expandedIncomingCross = [];
-foreach ($incomingCross as $key => $amt) {
-    $amt = (int)$amt;
-    if (strlen($key) < 3) {
-        $expandedIncomingCross[$key] = ($expandedIncomingCross[$key] ?? 0) + $amt;
-        continue;
-    }
-    $type = substr($key, 0, 2);
-    $numPart = substr($key, 2);
-    if (preg_match('/^\d{1,2}$/', $numPart)) {
-        $pair = strlen($numPart) === 1 ? str_pad($numPart, 2, '0', STR_PAD_LEFT) : $numPart;
-        $nk = strtolower($type) . $pair;
-        $expandedIncomingCross[$nk] = ($expandedIncomingCross[$nk] ?? 0) + $amt;
-        continue;
-    }
-    if (preg_match('/^\d+$/', $numPart)) {
-        $digits = str_split($numPart);
-        $n = count($digits);
-        for ($i = 0; $i < $n - 1; $i++) {
-            for ($j = $i + 1; $j < $n; $j++) {
-                $d1 = (string)(int)$digits[$i];
-                $d2 = (string)(int)$digits[$j];
-                $pairRaw = $d1 . $d2;
-                $pair = str_pad($pairRaw, 2, '0', STR_PAD_LEFT);
-                $nk = strtolower($type) . $pair;
-                $expandedIncomingCross[$nk] = ($expandedIncomingCross[$nk] ?? 0) + $amt;
+            // validate per draw
+            $errors = [];
+            $user = auth()->user();
+            $maximum_cross_amt = $user->creator->maximum_cross_amount;
+            $maximum_tq = $user->creator->maximum_tq;
+            foreach ($selected_draw_ids as $detailIdToCheck) {
+                $existingSimple = [];
+                for ($d = 0; $d <= 9; $d++) {
+                    $digit = (string)$d;
+                    $existingSimple['a' . $digit] = (int) DB::table('ticket_options')->where('draw_detail_id', $detailIdToCheck)->where('number', $digit)->sum('a_qty');
+                    $existingSimple['b' . $digit] = (int) DB::table('ticket_options')->where('draw_detail_id', $detailIdToCheck)->where('number', $digit)->sum('b_qty');
+                    $existingSimple['c' . $digit] = (int) DB::table('ticket_options')->where('draw_detail_id', $detailIdToCheck)->where('number', $digit)->sum('c_qty');
+                }
+
+                $existingCross = [];
+                $crossRows = DB::table('cross_abc_details')
+                    ->where('draw_detail_id', $detailIdToCheck)
+                    ->select('type', 'number', DB::raw('SUM(amount) as total_amt'))
+                    ->groupBy('type', 'number')
+                    ->get();
+                foreach ($crossRows as $r) {
+                    $existingCross[strtolower($r->type) . str_pad((int)$r->number, 2, '0', STR_PAD_LEFT)] = (int)$r->total_amt;
+                }
+
+                foreach ($incomingSimple as $key => $incomingQty) {
+                    $incomingQty = (int)$incomingQty;
+                    $existing = $existingSimple[$key] ?? 0;
+                    if ($existing + $incomingQty > $maximum_tq) {
+                        $allowed = max(0, $maximum_tq - $existing);
+                        $errors[] =  " limit exceeded for draw_detail {$detailIdToCheck}. Current: {$existing}, Incoming: {$incomingQty}, Max: {$maximum_tq}, Allowed add: {$allowed}";
+                    }
+                }
+
+                foreach ($incomingCross as $key => $incomingAmt) {
+                    $incomingAmt = (int)$incomingAmt;
+                    $existing = $existingCross[$key] ?? 0;
+                    if ($existing + $incomingAmt > $maximum_cross_amt) {
+                        $allowed = max(0, $maximum_cross_amt - $existing);
+                        $errors[] =  " limit exceeded for draw_detail {$detailIdToCheck}. Current: {$existing}, Incoming: {$incomingAmt}, Max: {$maximum_cross_amt}, Allowed add: {$allowed}";
+                    }
+                }
             }
-        }
-        continue;
-    }
-    $expandedIncomingCross[$key] = ($expandedIncomingCross[$key] ?? 0) + $amt;
-}
-$incomingCross = $expandedIncomingCross;
 
-// validate per draw
-$errors = [];
-foreach ($selected_draw_ids as $detailIdToCheck) {
-    $existingSimple = [];
-    for ($d = 0; $d <= 9; $d++) {
-        $digit = (string)$d;
-        $existingSimple['a'.$digit] = (int) DB::table('ticket_options')->where('draw_detail_id', $detailIdToCheck)->where('number', $digit)->sum('a_qty');
-        $existingSimple['b'.$digit] = (int) DB::table('ticket_options')->where('draw_detail_id', $detailIdToCheck)->where('number', $digit)->sum('b_qty');
-        $existingSimple['c'.$digit] = (int) DB::table('ticket_options')->where('draw_detail_id', $detailIdToCheck)->where('number', $digit)->sum('c_qty');
-    }
-
-    $existingCross = [];
-    $crossRows = DB::table('cross_abc_details')
-        ->where('draw_detail_id', $detailIdToCheck)
-        ->select('type','number', DB::raw('SUM(amount) as total_amt'))
-        ->groupBy('type','number')
-        ->get();
-    foreach ($crossRows as $r) {
-        $existingCross[strtolower($r->type) . str_pad((int)$r->number,2,'0',STR_PAD_LEFT)] = (int)$r->total_amt;
-    }
-
-    foreach ($incomingSimple as $key => $incomingQty) {
-        $incomingQty = (int)$incomingQty;
-        $existing = $existingSimple[$key] ?? 0;
-        if ($existing + $incomingQty > $maximum_tq) {
-            $allowed = max(0, $maximum_tq - $existing);
-            $errors['draw_detail_simple']["{$detailIdToCheck}:{$key}"] = strtoupper($key) . " limit exceeded for draw_detail {$detailIdToCheck}. Current: {$existing}, Incoming: {$incomingQty}, Max: {$maximum_tq}, Allowed add: {$allowed}";
-        }
-    }
-
-    foreach ($incomingCross as $key => $incomingAmt) {
-        $incomingAmt = (int)$incomingAmt;
-        $existing = $existingCross[$key] ?? 0;
-        if ($existing + $incomingAmt > $maximum_cross_amt) {
-            $allowed = max(0, $maximum_cross_amt - $existing);
-            $errors['draw_detail_cross']["{$detailIdToCheck}:{$key}"] = strtoupper($key) . " limit exceeded for draw_detail {$detailIdToCheck}. Current: {$existing}, Incoming: {$incomingAmt}, Max: {$maximum_cross_amt}, Allowed add: {$allowed}";
-        }
-    }
-}
-
-Log::info('LIMIT_CHECK_PRE_PERSIST_DEBUG', [
-    'selected_draw_ids' => $selected_draw_ids,
-    'incomingSimple' => $incomingSimple,
-    'incomingCross' => $incomingCross,
-    'maximum_tq' => $maximum_tq,
-    'maximum_cross_amt' => $maximum_cross_amt,
-    'maximum_source' => $maximum_source,
-    'errors' => $errors,
-]);
-
-if (!empty($errors)) {
-    // throw \Illuminate\Validation\ValidationException::withMessages($errors);
-
-     $this->dispatch('swal', [
-        'icon'  => 'error',
-        'title' => 'Oops!',
-        'text'  => json_encode($errors),
-    ]);
-    return;
-}
-// ---------- END PRE-PERSIST VALIDATION ----------
+            Log::info('LIMIT_CHECK_PRE_PERSIST_DEBUG', [
+                'selected_draw_ids' => $selected_draw_ids,
+                'incomingSimple' => $incomingSimple,
+                'incomingCross' => $incomingCross,
+                'maximum_tq' => $maximum_tq,
+                'maximum_cross_amt' => $maximum_cross_amt,
+                'maximum_source' => $maximum_source,
+                'errors' => $errors,
+            ]);
+            if (!empty($errors)) {
+                // throw \Illuminate\Validation\ValidationException::withMessages($errors);
+                $errMsg = '';
+                foreach($errors as $key => $msgs) {
+                    $errMsg .=  $msgs . "\n";
+                }
+                $this->dispatch('swal', [
+                    'icon'  => 'error',
+                    'title' => 'Oops!',
+                    'text'  => $errMsg,
+                ]);
+                return;
+            }
+            // ---------- END PRE-PERSIST VALIDATION ----------
 
 
 
 
-            
+
             // --- WALLET: attempt to debit buyer's wallet for the ticket purchase ---
             // Calculate total from cached options (same logic used later for payload)
             try {
@@ -754,7 +759,7 @@ if (!empty($errors)) {
                 }
             }
             // --- end wallet debit ---
-// Save TicketOption for EACH game and draw
+            // Save TicketOption for EACH game and draw
             foreach ($gameIds as $gid) {
                 foreach ($selected_draw_ids as $draw_detail_id) {
                     foreach ($digitMatrix as $number => $opts) {
@@ -784,7 +789,8 @@ if (!empty($errors)) {
             $this->saveCrossAbc();
             $this->saveCrossAbcDetail();
 
-            // Recalculate totals on the selected draw_details (post-persist, no duplicate validation)
+            // Recalculate totals on the selected draw_details
+            $drawDetails = \App\Models\DrawDetail::whereIn('id', $selected_draw_ids)->get();
             $drawDetails = DrawDetail::whereIn('id', $selected_draw_ids)->get();
             foreach ($drawDetails as $detail) {
                 $total_a_qty = (int) $detail->ticketOptions()->sum('a_qty');
@@ -805,92 +811,92 @@ if (!empty($errors)) {
             $this->auth_user->drawDetails()->syncWithoutDetaching($selected_draw_ids);
 
             // Build payload for frontend printing (do NOT emit here)
-        try {
-            $payloadStoredOptions = $cachedOptions->values()->all();
-        } catch (\Throwable $e) {
-            $payloadStoredOptions = [];
-        }
-
-        try {
-            $totalForCalc = collect($payloadStoredOptions)->sum('total');
-
-            if (method_exists($this, 'calculateTq')) {
-                $tq = $this->calculateTq();
-            } else {
-                $tq = $totalForCalc > 0 ? (int) floor($totalForCalc / self::PRICE) : 0;
+            try {
+                $payloadStoredOptions = $cachedOptions->values()->all();
+            } catch (\Throwable $e) {
+                $payloadStoredOptions = [];
             }
 
-            $total = $totalForCalc;
-            $drawCount = is_countable($this->selected_draw) ? count($this->selected_draw) : 1;
+            try {
+                $totalForCalc = collect($payloadStoredOptions)->sum('total');
 
-            if (method_exists($this, 'calculateFinalTotal')) {
-                $finalTotal = $this->calculateFinalTotal();
-            } else {
-                $finalTotal = $total * max(1, $drawCount);
+                if (method_exists($this, 'calculateTq')) {
+                    $tq = $this->calculateTq();
+                } else {
+                    $tq = $totalForCalc > 0 ? (int) floor($totalForCalc / self::PRICE) : 0;
+                }
+
+                $total = $totalForCalc;
+                $drawCount = is_countable($this->selected_draw) ? count($this->selected_draw) : 1;
+
+                if (method_exists($this, 'calculateFinalTotal')) {
+                    $finalTotal = $this->calculateFinalTotal();
+                } else {
+                    $finalTotal = $total * max(1, $drawCount);
+                }
+
+                $labels = $this->selected_game_labels ?? $this->selected_games ?? [];
+                $times = is_array($this->selected_times) ? $this->selected_times : ($this->selected_times ? [$this->selected_times] : []);
+
+                $payload = [
+                    'ticket_number'  => $this->selected_ticket_number ?? ($this->selected_ticket->ticket_number ?? null),
+                    'stored_options' => $payloadStoredOptions,
+                    'tq'             => $tq,
+                    'total'          => $total,
+                    'finalTotal'     => $finalTotal,
+                    'draw_count'     => $drawCount,
+                    'labels'         => $labels,
+                    'times'          => $times,
+                ];
+            } catch (\Throwable $e) {
+                $payload = [];
             }
 
-            $labels = $this->selected_game_labels ?? $this->selected_games ?? [];
-            $times = is_array($this->selected_times) ? $this->selected_times : ($this->selected_times ? [$this->selected_times] : []);
+            // If edit mode, redirect out (preserve existing behavior)
+            if ($this->is_edit_mode) {
+                return redirect()->route('dashboard');
+            }
 
-            $payload = [
-                'ticket_number'  => $this->selected_ticket_number ?? ($this->selected_ticket->ticket_number ?? null),
-                'stored_options' => $payloadStoredOptions,
-                'tq'             => $tq,
-                'total'          => $total,
-                'finalTotal'     => $finalTotal,
-                'draw_count'     => $drawCount,
-                'labels'         => $labels,
-                'times'          => $times,
-            ];
-        } catch (\Throwable $e) {
-            $payload = [];
+            // SUCCESS: return the payload so we can emit/dispatch after commit
+            return $payload;
+        });
+
+        // === AFTER TRANSACTION: only emit/dispatch when transaction returned a payload array ===
+        Log::info('SUBMIT_TICKET_AFTER_TX', ['transaction_result_type' => is_object($result) ? get_class($result) : gettype($result)]);
+
+        // If edit-mode redirect was returned by the transaction, return it (preserve behavior)
+        if ($result instanceof \Illuminate\Http\RedirectResponse) {
+            return $result;
         }
 
-        // If edit mode, redirect out (preserve existing behavior)
-        if ($this->is_edit_mode) {
-            return redirect()->route('dashboard');
+        // Only treat an array as a successful payload that should trigger printing
+        if (is_array($result) && !empty($result)) {
+            $payload = $result;
+
+            Log::info('SUBMIT_TICKET_EMIT_PAYLOAD', [
+                'ticket_number' => $payload['ticket_number'] ?? null,
+                'stored_options_count' => is_array($payload['stored_options']) ? count($payload['stored_options']) : 0,
+            ]);
+
+            try {
+                $this->emit('ticketSubmitted', $payload);
+            } catch (\Throwable $e) {
+                // keep original behavior: swallow emit errors
+            }
+
+            // Only dispatch UI events after successful transaction
+            $this->dispatch('refresh-window');
+            $this->dispatch('ticketSubmitted');
+
+            return true;
         }
 
-        // SUCCESS: return the payload so we can emit/dispatch after commit
-        return $payload;
-    });
+        // If transaction returned anything else (true/false/null), do NOT emit/dispatch.
+        // If it was a validation failure it should have thrown ValidationException (or returned non-array).
+        Log::info('SUBMIT_TICKET_NO_EMIT', ['transaction_result' => $result]);
 
-    // === AFTER TRANSACTION: only emit/dispatch when transaction returned a payload array ===
-Log::info('SUBMIT_TICKET_AFTER_TX', ['transaction_result_type' => is_object($result) ? get_class($result) : gettype($result)]);
-
-// If edit-mode redirect was returned by the transaction, return it (preserve behavior)
-if ($result instanceof \Illuminate\Http\RedirectResponse) {
-    return $result;
-}
-
-// Only treat an array as a successful payload that should trigger printing
-if (is_array($result) && !empty($result)) {
-    $payload = $result;
-
-    Log::info('SUBMIT_TICKET_EMIT_PAYLOAD', [
-        'ticket_number' => $payload['ticket_number'] ?? null,
-        'stored_options_count' => is_array($payload['stored_options']) ? count($payload['stored_options']) : 0,
-    ]);
-
-    try {
-        $this->emit('ticketSubmitted', $payload);
-    } catch (\Throwable $e) {
-        // keep original behavior: swallow emit errors
-    }
-
-    // Only dispatch UI events after successful transaction
-    $this->dispatch('refresh-window');
-    $this->dispatch('ticketSubmitted');
-
-    return true;
-}
-
-// If transaction returned anything else (true/false/null), do NOT emit/dispatch.
-// If it was a validation failure it should have thrown ValidationException (or returned non-array).
-Log::info('SUBMIT_TICKET_NO_EMIT', ['transaction_result' => $result]);
-
-// Return true to keep original caller behavior (no print)
-return true;
+        // Return true to keep original caller behavior (no print)
+        return true;
     }
 
     /**

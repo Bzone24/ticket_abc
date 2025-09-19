@@ -101,6 +101,15 @@ class DrawProfilLossDataTable extends DataTable
         }
     }
 
+    protected function getResult($draw_detail)
+    {
+        $a_claim = $draw_detail->claim_a;
+        $b_claim = $draw_detail->claim_b;
+        $c_claim = $draw_detail->claim_c;
+
+        return "$a_claim  $b_claim  $c_claim";
+    }
+
     protected function getTq($draw_detail)
     {
 
@@ -181,6 +190,7 @@ class DrawProfilLossDataTable extends DataTable
             ->editColumn('claim', function ($draw_detail) {
                 return $this->getClaim($draw_detail);
             })
+            ->editColumn('created_at', fn($row) => Carbon::parse($row->created_at)->format('Y-m-d'))
             ->editColumn('p_and_l', function ($row) {
                 // $p_and_l = (int) $row->p_and_l;
                 $tq = $this->getTq($row) * 11;
@@ -195,26 +205,34 @@ class DrawProfilLossDataTable extends DataTable
 
                 return "<div class='{$bgClass} text-center'>{$p_and_l}</div>";
             })
-            ->editColumn('created_at', fn($row) => Carbon::parse($row->created_at)->format('Y-m-d'))
             ->addColumn('action', function ($draw_detail) {
                 $draw_details = route('dashboard.draw.details.list', ['draw_id' => $draw_detail->id]);
                 $draw_detail_id = $draw_detail->id;
                 $end_time = Carbon::createFromTimeString($draw_detail->end_time)->format('H:i');
                 $now = Carbon::now()->setSecond(0)->timezone('Asia/Kolkata');
                 $segment = request()->segment(1);
+                if (auth()->user()->hasRole('admin')) {
+                    if (
+                        $segment === 'admin' && $now->gte($end_time) &&
+                        (empty($draw_detail->claim_a) && empty($draw_detail->claim_a) && empty($draw_detail->claim_b))
+                    ) {
 
-                if (
-                    $draw_detail->claim <= 0 &&
-                    $segment === 'admin' && $now->gte($end_time)
-                    && ($draw_detail->total_qty != 0 || $draw_detail->total_cross_amt != 0)
-                    && (empty($draw_detail->claim_ab) && empty($draw_detail->claim_ac) && empty($draw_detail->claim_bc))
-                ) {
-
-                    return <<<HTML
-                <div class="d-flex justify-content-center">
-                    <button class="btn btn-warning addClaim ms-3 text-white" data-draw-detail-id="{$draw_detail_id}">Claim</button>
-                        </div>
-                HTML;
+                        return <<<HTML
+                            <div class="d-flex justify-content-center">
+                                <button class="btn btn-warning addClaim ms-3 text-white" data-draw-detail-id="{$draw_detail_id}">Claim</button>
+                            </div>
+                        HTML;
+                    } else {
+                        return <<<HTML
+                            <div class="d-flex justify-content-center justify-space-between">
+                             
+                                <button class="btn btn-danger addClaim ms-3 text-white" data-draw-detail-id="{$draw_detail_id}">
+                                   <strong>{$this->getResult($draw_detail)}</strong>
+                                   <i class="fa fa-pencil"></i> 
+                                </button>
+                            </div>
+                        HTML;
+                    }
                 }
 
                 return '--';
@@ -329,7 +347,7 @@ class DrawProfilLossDataTable extends DataTable
             Column::make('cross_amt')->title('Cross Amt.'),
             Column::make('cross_claim')->title('Cross Claim'),
             Column::make('p_and_l')->title('P&L'),
-            Column::make('created_at'),
+            Column::make('created_at')->title('Created At'),
         ];
 
         if ($this->isAdminSeg() && !$this->userId) {

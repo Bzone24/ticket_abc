@@ -47,8 +47,14 @@ class DashboardController extends Controller
 
         $gameId = $request->input('game_id'); // 🔹 Get selected game
         $games = \App\Models\Game::all();
-
+        $authUser = auth()->user();
         $ticketQuery = Ticket::whereDate('created_at', $today);
+        if ($authUser->hasRole('shopkeeper')) {
+            $ticketQuery->whereHas('user', function ($q) use ($authUser) {
+                $q->where('created_by', $authUser->id);
+            });
+        }
+
         $drawDetailQuery = DrawDetail::where('date', $today_1);
 
         if ($gameId) {

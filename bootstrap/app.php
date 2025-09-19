@@ -23,12 +23,15 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Unauthenticated.'], 401);
             }
-            $guard = $e->guards()[0] ?? null;
-            $loginRoute = match ($guard) {
-                'admin' => route('admin.login'),
-                default => route('login'),
-            };
+            // $guard = $e->guards()[0] ?? null;
+            // $loginRoute = match ($guard) {
+            //     'admin' => route('admin.login'),
+            //     default => route('login'),
+            // };
+            if ($request->is('admin/*') || $request->is('admin')) {
+                return redirect()->guest(route('admin.login'));
+            }
 
-            return redirect()->guest($loginRoute);
+            return redirect()->guest(route('login'));
         });
     })->create();

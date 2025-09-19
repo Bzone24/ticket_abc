@@ -84,13 +84,6 @@ class ShopKeeperForm extends Component
             $this->mobile_number = $user->mobile_number;
             $this->maximum_cross_amount = $user->maximum_cross_amount;
             $this->maximum_tq = $user->maximum_tq;
-            // $this->rules['email'] = [
-            //     'required',
-            //     'string',
-            //     'email',
-            //     'unique:users,email,' . $user->id
-            // ];
-            // $this->rules['mobile_number'] = ['required', 'string', 'min:10', 'max:12', 'unique:users,mobile_number,' . $user->id];
             $this->existingUser = $user;
         }
     }
@@ -111,9 +104,8 @@ class ShopKeeperForm extends Component
 
         if (!empty($this->password)) {
             $shop_keeper_input_data['password_plain'] = $this->password;
-            $shop_keeper_input_data['password'] = bcrypt($this->password);
+            $shop_keeper_input_data['password'] = $this->password;
         } else {
-            // Prevent overwriting existing password
             unset($shop_keeper_input_data['password']);
             unset($shop_keeper_input_data['password_plain']);
         }
@@ -121,7 +113,16 @@ class ShopKeeperForm extends Component
         if ($this->existingUser) {
             $this->existingUser->update($shop_keeper_input_data);
         } else {
+            $authUser = auth()->user();
+            $shop_keeper_input_data['created_by'] = $authUser->id;
             $user = User::create($shop_keeper_input_data);
+
+            if ($authUser->hasRole('admin')) {
+                $user->assignRole('shopkeeper');
+            } else if ($authUser->hasRole('shopkeeper')) {
+                $user->assignRole('user');
+            }
+
             $user['ticket_series'] = $this->generateTicketNumberFromId($user->id);
             $user->save();
         }
