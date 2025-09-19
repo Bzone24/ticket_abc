@@ -12,7 +12,7 @@ Route::controller(AuthController::class)->group(function () {
     Route::post('login', 'login');
 });
 
-Route::middleware(['auth:admin'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::get('/', fn () => redirect()->route('admin.dashboard'));
 
     Route::controller(DashboardController::class)->prefix('dashboard')->group(function () {
@@ -20,9 +20,7 @@ Route::middleware(['auth:admin'])->group(function () {
         Route::get('cross-abc', 'crossAbc')->name('admin.dashboard.cross.abc');
         Route::get('get-cross-ac', 'getCrossAcList')->name('admin.dashboard.cross.get.ac');
         Route::get('get-cross-bc', 'getCrossBcList')->name('admin.dashboard.cross.get.bc');
-
         Route::get('total_qty_details/{drawDetail}', 'totalQtyDetailList')->name('admin.dashboard.total.qty.details.list');
-
     });
 
     // Shopkeeper's Routes

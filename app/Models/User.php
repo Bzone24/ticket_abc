@@ -12,11 +12,12 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasRoles;
 
     /**
      * The attributes that are mass assignable.
@@ -24,10 +25,17 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'first_name', 'last_name', 'mobile_number',
+        'first_name',
+        'last_name',
+        'mobile_number',
         'email',
-        'password', 'name', 'password_plain', 'ticket_series',
-        'maximum_cross_amount', 'maximum_tq'
+        'password',
+        'name',
+        'password_plain',
+        'ticket_series',
+        'maximum_cross_amount',
+        'maximum_tq',
+        'created_by'
     ];
 
     protected $appends = ['name'];
@@ -57,35 +65,35 @@ class User extends Authenticatable
 
     protected function password(): Attribute
     {
-        return Attribute::make(set: fn (string $password) => Hash::make($password)); // This return hash password
+        return Attribute::make(set: fn(string $password) => Hash::make($password)); // This return hash password
     }
 
     protected function passwordPlain(): Attribute
     {
         return Attribute::make(
-            set: fn (string $password) => Crypt::encryptString($password),
-            get: fn (string $password) => Crypt::decryptString($password)
+            set: fn(string $password) => Crypt::encryptString($password),
+            get: fn(string $password) => Crypt::decryptString($password)
         );
     }
 
     protected function name(): Attribute
     {
         return Attribute::get(
-            fn () => "{$this->first_name} {$this->last_name}"
+            fn() => "{$this->first_name} {$this->last_name}"
         );
     }
 
     protected function CreatedAt(): Attribute
     {
         return Attribute::get(
-            fn ($created_at) => Carbon::parse($created_at)->format('Y-m-d')
+            fn($created_at) => Carbon::parse($created_at)->format('Y-m-d')
         );
     }
 
     protected function UpdatedAt(): Attribute
     {
         return Attribute::get(
-            fn ($updated_at) => Carbon::parse($updated_at)->format('Y-m-d')
+            fn($updated_at) => Carbon::parse($updated_at)->format('Y-m-d')
         );
     }
 
@@ -125,5 +133,15 @@ class User extends Authenticatable
     public function crossAbcDetail()
     {
         return $this->hasMany(CrossAbcDetail::class);
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(User::class, 'created_by');
     }
 }

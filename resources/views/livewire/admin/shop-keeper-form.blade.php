@@ -74,6 +74,7 @@
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
                         </div>
+                        @hasrole('admin')
                         <div class="mb-3 col-md-6 position-relative">
                             <label for="maximum_cross_amount" class="form-label">Maximum Cross Amount</label>
                             <div class="input-group">
@@ -99,6 +100,7 @@
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
                         </div>
+                        @endhasrole
 
                     </div>
 

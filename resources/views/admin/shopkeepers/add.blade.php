@@ -3,7 +3,7 @@
 @section('contents')
     <div class="container-fluid">
         @if (!$user)
-            <h2>Add Shopkeeper</h2>
+            <h2> @hasrole('admin')Add Shopkeeper @elserole('shopkeeper')Add User @endrole</h2>
         @else
             <h2>Edit {{ $user->name }}</h2>
         @endif

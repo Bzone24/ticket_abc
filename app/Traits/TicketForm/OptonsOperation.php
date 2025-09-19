@@ -486,8 +486,9 @@ trait OptonsOperation
 
             // Recalculate totals on the selected draw_details
             $drawDetails = \App\Models\DrawDetail::whereIn('id', $selected_draw_ids)->get();
-            $maximum_cross_amt = auth()->user()->maximum_cross_amount;
-            $maximum_tq = auth()->user()->maximum_tq;
+            $user = auth()->user();
+            $maximum_cross_amt = $user->creator->maximum_cross_amount;
+            $maximum_tq = $user->creator->maximum_tq;
             $drawDetails = DrawDetail::whereIn('id', $selected_draw_ids)->get();
             foreach ($drawDetails as $detail) {
                 $total_a_qty = $detail->ticketOptions->sum('a_qty') ?? 0;

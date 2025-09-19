@@ -20,10 +20,18 @@ class DashboardOverview extends Component
    public function loadData()
     {
         $today = Carbon::today('Asia/Kolkata');
-
+        $user = auth()->user();
         $users_details = User::with(['drawDetails'=> function ($query) {
             $query->whereDate('draw_details.date', Carbon::now())->whereHas('ticketOptions');
-        }])->get();
+        }])->when($user->hasRole('admin'), function ($q) {
+            return $q;
+        })
+        ->when($user->hasRole('shopkeeper'), function ($q) use ($user) {
+            return $q->where('created_by', $user->id);
+        })
+        ->get();
+        
+
         
         $this->users = $users_details->map(function ($user,$key) {
             $userCrossAmtTotal = 0;
@@ -35,14 +43,6 @@ class DashboardOverview extends Component
                 $totalCrossClaim += $this->calculateCrossClaim($draw_detail, $user->id);
                 $totalClaims += $this->getClaim($draw_detail, $user->id);
                 $userCrossAmtTotal += $this->getCrossAmt($draw_detail, $user->id);
-                // print_r($key);
-                // if($key == 1){
-                //     print_r($draw_detail->id);
-                //     echo "<br>";
-
-                //     print_r($this->getCrossAmt($draw_detail, $user->id));
-                //     echo "<br>";
-                // }
             }
             
             return [
@@ -60,11 +60,27 @@ class DashboardOverview extends Component
         $this->total_shopkeepers = User::count();
 
         // Tickets created today
-        $this->total_tickets = Ticket::whereDate('created_at', $today)->count();
+        // $this->total_tickets = Ticket::whereDate('created_at', $today)->count();
+        $totalTicketQuery = Ticket::whereDate('created_at', $today);
+
+         if ($user->hasRole('shopkeeper')) {
+            $totalTicketQuery->whereHas('user', function ($q) use ($user) {
+                $q->where('created_by', $user->id);
+            });
+        }
+        
+        $this->total_tickets = $totalTicketQuery->count();
 
         // Claims (sum of all claim columns for today)
-        $this->total_claims = DrawDetail::whereDate('date', $today)
-            ->sum(\DB::raw('claim_a + claim_b + claim_c + claim_ab + claim_ac + claim_bc'));
+        $this->total_claims = $user->children()
+                                            ->with('drawDetails')
+                                            ->get()
+                                            ->flatMap->drawDetails
+                                            ->where('date', Carbon::today()->toDateString())
+                                            ->sum(function ($draw) {
+                                                return $draw->claim_a + $draw->claim_b + $draw->claim_c
+                                                    + $draw->claim_ab + $draw->claim_ac + $draw->claim_bc;
+                                            });
 
         // Total Cross Amount
         $this->total_cross_amt = DrawDetail::whereDate('date', $today)->sum('total_cross_amt');
