@@ -161,7 +161,7 @@ trait OptonsOperation
     public function storeOptionsIntoCache($data)
     {
         $existing = $this->getOptionsIntoCache()->values()->all();
-        $incoming = is_array($data) ? $data : ( $data instanceof Collection ? $data->values()->all() : (array) $data );
+        $incoming = is_array($data) ? $data : ($data instanceof Collection ? $data->values()->all() : (array) $data);
 
         // merge existing first so new entries appear after existing (same as original merge)
         $merged = array_values(array_merge($existing, $incoming));
@@ -251,9 +251,9 @@ trait OptonsOperation
                     ->whereRaw("STR_TO_DATE(end_time,   '%H:%i') >= STR_TO_DATE(?, '%H:%i')", [$now]);
             })->orWhereRaw("STR_TO_DATE(start_time, '%H:%i') > STR_TO_DATE(?, '%H:%i')", [$now]);
         })
-        ->where('date', now('Asia/Kolkata')->toDateString())
-        ->pluck('id')
-        ->toArray();
+            ->where('date', now('Asia/Kolkata')->toDateString())
+            ->pluck('id')
+            ->toArray();
     }
 
     /**
@@ -710,7 +710,14 @@ Log::info('LIMIT_CHECK_PRE_PERSIST_DEBUG', [
 ]);
 
 if (!empty($errors)) {
-    throw \Illuminate\Validation\ValidationException::withMessages($errors);
+    // throw \Illuminate\Validation\ValidationException::withMessages($errors);
+
+     $this->dispatch('swal', [
+        'icon'  => 'error',
+        'title' => 'Oops!',
+        'text'  => json_encode($errors),
+    ]);
+    return;
 }
 // ---------- END PRE-PERSIST VALIDATION ----------
 

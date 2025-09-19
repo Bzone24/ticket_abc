@@ -104,7 +104,7 @@ class DrawProfilLossDataTable extends DataTable
     protected function getTq($draw_detail)
     {
 
-        if (! $this->isAdminSeg() || ($this->isAdminSeg() && $this->userId) ) {
+        if (! $this->isAdminSeg() || ($this->isAdminSeg() && $this->userId)) {
             $a_qty = $draw_detail->ticketOptions()->where('user_id', $this->resolveUserId())->sum('a_qty');
             $b_qty = $draw_detail->ticketOptions()->where('user_id', $this->resolveUserId())->sum('b_qty');
             $c_qty = $draw_detail->ticketOptions()->where('user_id', $this->resolveUserId())->sum('c_qty');
@@ -272,7 +272,7 @@ class DrawProfilLossDataTable extends DataTable
             })
             // ✅ For non-admin restrict by user
             ->when(
-                (!$this->isAdminSeg() && auth()->user()) || ($this->isAdminSeg() && $this->userId) ,
+                (!$this->isAdminSeg() && auth()->user()) || ($this->isAdminSeg() && $this->userId),
                 fn($q) => $q->forUserTicketOption($this->resolveUserId())
             )
             // ✅ Order handling

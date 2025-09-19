@@ -34,16 +34,42 @@ class ShopKeeperForm extends Component
 
     // public $userId;
 
-    public $rules = [
-        'first_name' => 'required|string|min:3|max:25',
-        'last_name' => 'required|string|min:3|max:25',
-        'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-        'mobile_number' => ['required', 'string', 'min:10', 'max:12', 'unique:users,mobile_number'],
-        'password' => ['required', 'string', 'min:6', 'max:20', 'confirmed'],
-        'maximum_cross_amount'=> ['required', 'numeric' ],
-        'maximum_tq'=> ['required', 'numeric' ],
-    ];
+    // public $rules = [
+    //     'first_name' => 'required|string|min:3|max:25',
+    //     'last_name' => 'required|string|min:3|max:25',
+    //     'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+    //     'mobile_number' => ['required', 'string', 'min:10', 'max:12', 'unique:users,mobile_number'],
+    //     'password' => ['required', 'string', 'min:6', 'max:20', 'confirmed'],
+    //     'maximum_cross_amount'=> ['required', 'numeric' ],
+    //     'maximum_tq'=> ['required', 'numeric' ],
+    // ];
+    public function rules()
+    {
+        $user = $this->existingUser;
+        if ($user) {
+            // Editing existing user
+            return [
+                'first_name' => 'required|string|min:3|max:25',
+                'last_name'  => 'required|string|min:3|max:25',
+                'email'      => ['nullable', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
+                'mobile_number' => ['nullable', 'string', 'min:10', 'max:12', 'unique:users,mobile_number,' . $user->id],
+                'password'   => ['nullable', 'string', 'min:6', 'max:20', 'confirmed'],
+                'maximum_cross_amount' => ['nullable', 'numeric'],
+                'maximum_tq' => ['nullable', 'numeric'],
+            ];
+        }
 
+        // Creating new user
+        return [
+            'first_name' => 'required|string|min:3|max:25',
+            'last_name'  => 'required|string|min:3|max:25',
+            'email'      => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'mobile_number' => ['required', 'string', 'min:10', 'max:12', 'unique:users,mobile_number'],
+            'password'   => ['required', 'string', 'min:6', 'max:20', 'confirmed'],
+            'maximum_cross_amount' => ['required', 'numeric'],
+            'maximum_tq' => ['required', 'numeric'],
+        ];
+    }
     public function getUser($user_id)
     {
         return User::where('id', $user_id)->first();
@@ -58,11 +84,13 @@ class ShopKeeperForm extends Component
             $this->mobile_number = $user->mobile_number;
             $this->maximum_cross_amount = $user->maximum_cross_amount;
             $this->maximum_tq = $user->maximum_tq;
-            $this->rules['email'] = [
-                'required',
-                'string',
-                'email', 'unique:users,email,'.$user->id];
-            $this->rules['mobile_number'] = ['required', 'string', 'min:10', 'max:12', 'unique:users,mobile_number,'.$user->id];
+            // $this->rules['email'] = [
+            //     'required',
+            //     'string',
+            //     'email',
+            //     'unique:users,email,' . $user->id
+            // ];
+            // $this->rules['mobile_number'] = ['required', 'string', 'min:10', 'max:12', 'unique:users,mobile_number,' . $user->id];
             $this->existingUser = $user;
         }
     }
@@ -78,8 +106,17 @@ class ShopKeeperForm extends Component
 
     public function save()
     {
-        $shop_keeper_input_data = $this->validate($this->rules);
+        $shop_keeper_input_data = $this->validate();
         $shop_keeper_input_data['password_plain'] = $this->password;
+
+        if (!empty($this->password)) {
+            $shop_keeper_input_data['password_plain'] = $this->password;
+            $shop_keeper_input_data['password'] = bcrypt($this->password);
+        } else {
+            // Prevent overwriting existing password
+            unset($shop_keeper_input_data['password']);
+            unset($shop_keeper_input_data['password_plain']);
+        }
 
         if ($this->existingUser) {
             $this->existingUser->update($shop_keeper_input_data);
@@ -90,7 +127,6 @@ class ShopKeeperForm extends Component
         }
 
         return redirect()->route('admin.shopkeepers');
-
     }
 
     public function render()

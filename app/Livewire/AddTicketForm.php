@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\DrawDetail;
 use App\Models\User;
 use App\Traits\TicketForm\CrossAbcOperation;
 use App\Traits\TicketForm\TicketFormAction;
@@ -361,5 +362,10 @@ public function handleCountdownReached($payload = null)
 
         $first = is_array($this->selected_games) ? reset($this->selected_games) : $this->selected_games;
         $this->game_id = $first !== false ? (int) $first : null;
+    }
+
+    public function getSelectedDrawsProperty()
+    {
+        return DrawDetail::whereIn('id', $this->selected_draw)->get();
     }
 }

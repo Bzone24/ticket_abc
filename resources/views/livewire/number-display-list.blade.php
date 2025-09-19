@@ -43,9 +43,10 @@
             @endphp
 
             <h6 class="mb-0 w-100 text-center">
-                <strong>Game:</strong> {{ !empty($labels) ? implode(', ', $labels) : '—' }}
-                &nbsp; | &nbsp;
-                <strong>Draw:</strong> {{ !empty($times) ? implode(', ', $times) : '—' }}
+                @foreach ($this->selectedDraws as $key => $draw)
+                    <strong>Draw:</strong> {{ $draw->formatResultTime() }} ,
+                    <strong>Game:</strong>{{ $draw->draw->game->name }} |
+                @endforeach
             </h6>
         </div>
     </div>
@@ -513,7 +514,6 @@
 
             }, 120);
         }
-
 
         Livewire.on('ticketSubmitted', () => {
             printStackedTicket();
