@@ -527,5 +527,11 @@
                 printStackedTicket();
             }
         });
+
+            
+   
+
     </script>
+
+    
 @endscript

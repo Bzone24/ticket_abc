@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 
+use function Symfony\Component\String\b;
+
 trait OptonsOperation
 {
     const PRICE = 11;
@@ -486,6 +488,8 @@ trait OptonsOperation
                 }
             }
             ksort($digitMatrix);
+
+            
             // ---------- PRE-PERSIST VALIDATION ----------
             $maxTqFromSettings = Schema::hasTable('settings') ? DB::table('settings')->where('key', 'maximum_tq')->value('value') : null;
             $maxCrossFromSettings = Schema::hasTable('settings') ? DB::table('settings')->where('key', 'maximum_cross_amount')->value('value') : null;
@@ -661,9 +665,7 @@ trait OptonsOperation
 
             // validate per draw
             $errors = [];
-            $user = auth()->user();
-            $maximum_cross_amt = $user->creator->maximum_cross_amount;
-            $maximum_tq = $user->creator->maximum_tq;
+           
             foreach ($selected_draw_ids as $detailIdToCheck) {
                 $existingSimple = [];
                 for ($d = 0; $d <= 9; $d++) {
@@ -711,19 +713,56 @@ trait OptonsOperation
                 'maximum_source' => $maximum_source,
                 'errors' => $errors,
             ]);
-            if (!empty($errors)) {
-                // throw \Illuminate\Validation\ValidationException::withMessages($errors);
-                $errMsg = '';
-                foreach($errors as $key => $msgs) {
-                    $errMsg .=  $msgs . "\n";
-                }
-                $this->dispatch('swal', [
-                    'icon'  => 'error',
-                    'title' => 'Oops!',
-                    'text'  => $errMsg,
-                ]);
-                return;
-            }
+            // if (!empty($errors)) {
+            //     // throw \Illuminate\Validation\ValidationException::withMessages($errors);
+            //     $errMsg = '';
+            //     foreach($errors as $key => $msgs) {
+            //         $errMsg .=  $msgs . "\n";
+            //     }
+            //     $this->dispatch('swal', [
+            //         'icon'  => 'error',
+            //         'title' => 'Oops!',
+            //         'text'  => $errMsg,
+            //     ]);
+            //     return;
+            // }
+
+if (!empty($errors)) {
+    // Build a readable multi-line plain text message (safe, minimal change)
+    $lines = [];
+    foreach ($errors as $msg) {
+        // try to parse the classic pattern so we keep columns compact
+        if (preg_match('/^([A-Z0-9]+)\s+limit\s+exceeded\s+for\s+draw_detail\s+(\d+)\.\s*Current:\s*(\d+),\s*Incoming:\s*(\d+),\s*Max:\s*(\d+),\s*Allowed\s+add:\s*(\d+)/i', $msg, $m)) {
+            // Format: KEY | Draw: 473 | Curr:0 | Inc:60 | Max:50 | Allow:50
+            $lines[] = sprintf(
+                '%s | Draw:%s | Curr:%s | Inc:%s | Max:%s | Allow:%s',
+                strtoupper($m[1]),
+                $m[2],
+                $m[3],
+                $m[4],
+                $m[5],
+                $m[6]
+            );
+        } else {
+            // fallback: single-line escaped plain message
+            $lines[] = trim((string) $msg);
+        }
+    }
+
+    // join with newline for SweetAlert text (will show as readable separate lines)
+    $errMsg = implode("\n", $lines);
+
+    // dispatch using the existing dispatch method (keeps everything else unchanged)
+    $this->dispatch('swal', [
+        'icon'  => 'error',
+        'title' => 'Oops!',
+        'text'  => $errMsg,
+    ]);
+
+    return;
+}
+
+
             // ---------- END PRE-PERSIST VALIDATION ----------
 
 

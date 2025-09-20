@@ -6,23 +6,7 @@
     <div class="card-header text-black">
         <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom w-100">
 
-            {{-- @php
-      // TIMES: prefer $selected_times; fallback to active_draw->formatEndTime()
-      $times = !empty($selected_times)
-          ? $selected_times
-          : (isset($active_draw) ? [ $active_draw->formatTime() ] : []);
           
-
-      // GAMES: prefer $selected_game_labels; fallback from games list
-      $labels = !empty($selected_game_labels)
-          ? $selected_game_labels
-          : collect($games ?? [])
-                ->whereIn('id', $selected_games ?? [])
-                ->map(fn($g) => strtoupper($g->code ?? $g->short_code ?? $g->name ?? ''))
-                ->values()
-                ->all();
-    @endphp --}}
-
             @php
                 use Illuminate\Support\Str;
 
@@ -270,5 +254,11 @@
             printWindow.print();
             printWindow.close();
         }
+
+
+
     </script>
+
+
+
 @endscript
