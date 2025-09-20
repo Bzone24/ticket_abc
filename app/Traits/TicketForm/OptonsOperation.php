@@ -688,7 +688,7 @@ trait OptonsOperation
                     $existing = $existingSimple[$key] ?? 0;
                     if ($existing + $incomingQty > $maximum_tq) {
                         $allowed = max(0, $maximum_tq - $existing);
-                        $errors[] =  " limit exceeded for draw_detail {$detailIdToCheck}. Current: {$existing}, Incoming: {$incomingQty}, Max: {$maximum_tq}, Allowed add: {$allowed}";
+                        $errors[] = strtoupper($key) . " limit exceeded for draw_detail {$detailIdToCheck}. Current: {$existing}, Incoming: {$incomingQty}, Max: {$maximum_tq}, Allowed add: {$allowed}";
                     }
                 }
 
@@ -697,7 +697,7 @@ trait OptonsOperation
                     $existing = $existingCross[$key] ?? 0;
                     if ($existing + $incomingAmt > $maximum_cross_amt) {
                         $allowed = max(0, $maximum_cross_amt - $existing);
-                        $errors[] =  " limit exceeded for draw_detail {$detailIdToCheck}. Current: {$existing}, Incoming: {$incomingAmt}, Max: {$maximum_cross_amt}, Allowed add: {$allowed}";
+                        $errors[] = strtoupper($key) . " limit exceeded for draw_detail {$detailIdToCheck}. Current: {$existing}, Incoming: {$incomingAmt}, Max: {$maximum_cross_amt}, Allowed add: {$allowed}";
                     }
                 }
             }
